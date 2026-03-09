@@ -4,24 +4,25 @@ Privacy Budget Assessment for Vision and Vision-Language Models via Bottom-Up, T
 
 ## Structure
 
-- **bua/** — Bodhi VLM paper (main.tex, ref.bib), images, experiment scripts (git submodule)
+- **main.tex** — 主文稿（IEEE Trans 格式）
+- **ref.bib** — 参考文献
+- **images/** — 图片
+- **scripts/** — 实验脚本
+- **results/** — 实验输出
 
-> 若 `bua/` 为空，执行 `git submodule update --init --recursive`。首次设置见 `SETUP_SUBMODULE.md`。
-
-## Setup
+## 编译
 
 ```bash
-# Clone with submodule
-git clone --recurse-submodules https://github.com/mabo1215/bodhi-vlm.git
-
-# Or if already cloned, init submodule
-git submodule update --init --recursive
+pdflatex main
+bibtex main
+pdflatex main
+pdflatex main
 ```
 
-## Paper
+## 实验
 
-See `bua/main.tex` for the IEEE Trans format paper. Build with:
 ```bash
-cd bua
-pdflatex main && bibtex main && pdflatex main && pdflatex main
+cd scripts
+pip install -r requirements_experiments.txt
+python run_experiments.py --out_dir ../results --epsilon 0.1 0.01 0.001
 ```
