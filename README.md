@@ -4,7 +4,9 @@ Privacy Budget Assessment for Vision and Vision-Language Models via Bottom-Up, T
 
 ## Structure
 
-- **bua/** — Bodhi VLM paper (main.tex, ref.bib), images, experiment scripts (submodule)
+- **bua/** — Bodhi VLM paper (main.tex, ref.bib), images, experiment scripts (git submodule)
+
+> 若 `bua/` 为空，执行 `git submodule update --init --recursive`。首次设置见 `SETUP_SUBMODULE.md`。
 
 ## Setup
 
