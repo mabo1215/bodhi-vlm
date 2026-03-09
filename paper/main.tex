@@ -1,17 +1,19 @@
 % Bodhi VLM: Privacy Budget Assessment for Vision and Vision-Language Models
 % IEEE Transactions format
-\documentclass[journal]{IEEEtran}
+\documentclass[journal,transmag]{IEEEtran}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
-\usepackage{algorithm}
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
+\usepackage{comment}
 \usepackage{url}
 \usepackage{cite}
 \usepackage{hyperref}
 \renewcommand{\algorithmicrequire}{\textbf{Input:}}
 \renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+\hyphenation{op-tical net-works semi-conduc-tor pri-va-cy dif-fer-en-tial}
 
 \begin{document}
 
@@ -22,15 +24,16 @@ Jinsong Wu\IEEEauthorrefmark{2},\IEEEauthorrefmark{3}}
 \IEEEauthorblockA{
 \IEEEauthorrefmark{1}School of Mathematics and Computer Engineering,
 Auckland University of Technology,Auckalnd  1024 NZ,\\
-\IEEEauthorrefmark{2} Department of Artificial Intelligence,
+\IEEEauthorrefmark{2} Resideo Technologies, Inc. ,Austin, TX 78759, USA,\\
+\IEEEauthorrefmark{3} Department of Artificial Intelligence,
     Guilin University of Electronic Technology, Gui Lin, China, \\
-\IEEEauthorrefmark{3} Department of Electrical Engineering,
+\IEEEauthorrefmark{4} Department of Electrical Engineering,
     Universidad de Chile, Santiago, Chile, 
 }
 
  % stops an unwanted space
-\thanks{Manuscript received July 1, 2020; revised July 27, 2020.
-Corresponding author:bo.ma@aut.ac.nz}
+\thanks{Manuscript received Apr 1, 2026; 
+Corresponding author:rcn4743@aut.ac.nz}
 }
 
 
@@ -38,15 +41,20 @@ Corresponding author:bo.ma@aut.ac.nz}
 \author{ draft submission}
 \end{comment}
 
-\maketitle
+\markboth{IEEE Transactions on Neural Networks and Learning Systems}%
+{Ma \MakeLowercase{\textit{et al.}}: Bodhi VLM: Privacy Budget Assessment for Vision and Vision-Language Models}
 
+\IEEEtitleabstractindextext{%
 \begin{abstract}
 Assessing whether the privacy noise introduced by a privacy-preserving model aligns with a predefined privacy budget remains challenging for both vision and vision-language models (VLMs). We propose \emph{Bodhi VLM} (Budget-aware Orthogonal Decomposition for Hierarchical Inference in Vision-Language Models), a framework that: (1) links sensitive data labels to privacy budgets via clustering; (2) locates sensitive feature regions using bottom-up (BUA) and top-down (TDA) strategies over hierarchical representations (e.g., feature pyramids or vision-encoder layers); and (3) evaluates the noise against the budget using an Expectation-Maximization Privacy Assessment (EMPA) method. BUA aggregates low-level features upward with NCP and MDAV to form sensitive/non-sensitive groups; TDA partitions high-level features downward. EMPA reconstructs the privacy-feature distribution and outputs a bias relative to the budget. The same pipeline applies to object detectors (YOLO, PPDPTS, DETR) and to the vision tower of VLMs (e.g., CLIP, LLaVA). Experiments on MOT20 and COCO show that BUA and TDA yield comparable deviation trends and EMPA achieves lower rMSE than Chi-square, K-L divergence, and MMD; we also report protocol and results for VLM-style feature hierarchies.
 \end{abstract}
-
 \begin{IEEEkeywords}
 Bodhi VLM, privacy budget assessment, bottom-up analysis (BUA), top-down analysis (TDA), expectation-maximization privacy assessment (EMPA), vision-language model (VLM), differential privacy, sensitive feature localization.
-\end{IEEEkeywords}
+\end{IEEEkeywords}}
+
+\maketitle
+\IEEEdisplaynontitleabstractindextext
+\IEEEpeerreviewmaketitle
 
 \section{Introduction}
 \label{sec:intro}
@@ -82,9 +90,8 @@ Let $D$ be an image dataset and $S_\epsilon$ a set of sensitive labels associate
 
 BUA starts from the bottom layer of the backbone and iterates upward. For each layer $i$, it maintains groups $G_i$ (non-sensitive) and $G_i'$ (sensitive). It uses the normalized certainty penalty NCP to compare features with $S_\epsilon$, and the MDAV algorithm~\cite{soria2014enhancing} to cluster labels; features are assigned to $G_i$ or $G_i'$ so that each group has at least $u$ elements. Sensitive features are extracted as $\mathit{temp} = (f \cap S_\epsilon) \cup V_i$ and merged via NCP into $G_i'$. Algorithm~\ref{alg:bua} summarizes the process.
 
-\begin{algorithm}[t]
-\caption{Bottom-Up Strategy (BUA)}
-\label{alg:bua}
+\begin{figure}[t]
+\centering
 \begin{algorithmic}[1]
 \REQUIRE Image dataset $D$; groups $G_1,\ldots,G_n$; empty vectors $V_1,\ldots,V_n$; $\epsilon$, $S_\epsilon$
 \ENSURE $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
@@ -99,25 +106,26 @@ BUA starts from the bottom layer of the backbone and iterates upward. For each l
 \ENDFOR
 \STATE \textbf{return} $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
 \end{algorithmic}
-\end{algorithm}
+\caption{Bottom-Up Strategy (BUA)}
+\label{alg:bua}
+\end{figure}
 
 Figure~\ref{fig:bua} illustrates BUA in a YOLO-style detector: low-level features are aggregated upward, and attention-like weights highlight candidate sensitive regions for later budget evaluation.
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=0.95\columnwidth]{images/BUAexplain.png}
+\includegraphics[width=0.8\textwidth]{images/BUAexplain.png}
 \caption{BUA in a YOLO-style detector: bottom-up aggregation and feedback weights for sensitive regions.}
 \label{fig:bua}
-\end{figure}
+\end{figure*}
 
 \subsection{Top-Down Strategy (TDA)}
 \label{subsec:tda}
 
 TDA starts from the top layer and proceeds downward. It partitions features at each layer into $G_i$ and $G_i'$ using MDAV and NCP, then links layers by checking $G_i \cap G_{i-1}$ and $G_i' \cap G_{i-1}'$ and computing $u \cup \mathrm{NCP}(G_i \cup G_{i+1})$ and $v \cup \mathrm{NCP}(G_i' \cup G_{i+1}')$. Algorithm~\ref{alg:tda} gives the outline. In practice, TDA can be realized with a topological pipeline (e.g., persistence diagrams) to identify structure-sensitive components and trace them back to lower-level groups~\cite{lin2017feature}.
 
-\begin{algorithm}[t]
-\caption{Top-Down Strategy (TDA)}
-\label{alg:tda}
+\begin{figure}[t]
+\centering
 \begin{algorithmic}[1]
 \REQUIRE $D$, $G_1,\ldots,G_n$, $\epsilon$, $S_\epsilon$
 \ENSURE $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
@@ -136,14 +144,16 @@ TDA starts from the top layer and proceeds downward. It partitions features at e
 \ENDFOR
 \STATE \textbf{return} $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
 \end{algorithmic}
-\end{algorithm}
+\caption{Top-Down Strategy (TDA)}
+\label{alg:tda}
+\end{figure}
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=0.98\columnwidth]{images/PPDPTSexplain.png}
+\includegraphics[width=0.8\textwidth]{images/PPDPTSexplain.png}
 \caption{TDA with PPDPTS-style tracking: high-level features to persistence summaries, then trace-back to sensitive groups.}
 \label{fig:tda}
-\end{figure}
+\end{figure*}
 
 \subsection{Expectation-Maximization Privacy Assessment (EMPA)}
 \label{subsec:empa}
@@ -210,17 +220,17 @@ Figures~\ref{fig:yolo} and~\ref{fig:ppdpts} show the deviation between original 
 \subsection{EMPA with BUA/TDA}
 Figure~\ref{fig:mmdempa} plots deviation for TDA+EMPA and BUA+EMPA on 150 MOT20 images (PPDPTS, $\epsilon=0.001$). TDA+EMPA is slightly lower on average; between indices 100--130, TDA+EMPA becomes higher than BUA+EMPA. Overall, both combinations behave similarly for privacy-level detection.
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=1.0\columnwidth]{images/MMDEMPA.png}
+\includegraphics[width=0.8\textwidth]{images/MMDEMPA.png}
 \caption{Deviation: TDA+EMPA vs.\ BUA+EMPA (MOT20, PPDPTS $\epsilon=0.001$).}
 \label{fig:mmdempa}
-\end{figure}
+\end{figure*}
 
 \subsection{Comparison with Other Metrics}
 Table~\ref{tab:rmse} reports rMSE for Chi-square, K-L divergence, MMD, and EMPA on MDCRF-0.1, DETR-0.1, PPDPTS-0.1, PPDPTS-0.01. EMPA gives lower rMSE (e.g., 2.02, 3.02, 2.02, 5.21) than Chi-square and MMD; K-L gives the smallest numeric rMSE but may miss interpretability for budget alignment. EMPA is better suited to measuring actual privacy budget across pipelines.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \caption{rMSE for Chi-square, K-L, MMD, EMPA.}
 \label{tab:rmse}
@@ -234,7 +244,7 @@ MMD        & 3.44 & 3.54 & 3.00 & 8.56 & 5.56 \\
 EMPA       & 2.02 & 3.02 & 2.02 & 5.21 & 3.19 \\
 \hline
 \end{tabular}
-\end{table}
+\end{table*}
 
 Figure~\ref{fig:empa1} shows privacy budget (y-axis) vs.\ rMSE (x-axis) for TDA+EMPA and BUA+EMPA on COCO; Laplace is the reference. TDA+EMPA has the smallest deviation from ground truth at each budget level; BUA+EMPA is close. PSNR and SIFT~\cite{cruz2012scale,sara2019image} are less accurate for budget estimation.
 
@@ -252,7 +262,7 @@ To validate the protocol in Section~\ref{sec:expdesign}, we ran the provided Pyt
 
 Figure~\ref{fig:script_empa} plots the EMPA bias (vertical axis) against the privacy budget $\epsilon$ (horizontal axis, log scale) for BUA+EMPA and TDA+EMPA. Both curves overlap because the two strategies produce the same groups on this synthetic hierarchy; the flat trend shows that the bias is determined mainly by the group structure rather than the noise scale in this experiment. Figure~\ref{fig:script_metrics} provides a two-panel matplotlib figure: the left panel shows rMSE vs.\ $\epsilon$ (log scale on both axes), illustrating the sharp rise in reconstruction error as $\epsilon$ decreases; the right panel shows Chi-square, K-L divergence, and MMD vs.\ $\epsilon$, so that readers can compare how each baseline metric responds to the privacy budget. These figures were generated automatically by the script \texttt{plot\_paper\_figures.py} from the CSV output of \texttt{run\_experiments.py}; the scripts are available in the repository.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \caption{Metrics from reproducible script (synthetic hierarchical features).}
 \label{tab:script}
@@ -265,7 +275,7 @@ $\epsilon$ & Chi-square ($\times 10^6$) & K-L & MMD & rMSE & (max gap) & EMPA (B
 0.001& 69.0 & 4.84 & 0.0217 & 555.3 & -- & 0.894 & 0.894 \\
 \hline
 \end{tabular}
-\end{table}
+\end{table*}
 
 \begin{figure}[t]
 \centering
@@ -274,12 +284,12 @@ $\epsilon$ & Chi-square ($\times 10^6$) & K-L & MMD & rMSE & (max gap) & EMPA (B
 \label{fig:script_empa}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure*}[htbp]
 \centering
-\includegraphics[width=0.98\columnwidth]{images/bodhi_vlm_metrics_vs_epsilon.png}
-\caption{Left: rMSE between original and noised features vs.\ $\epsilon$ (log scale). Right: Chi-square statistic, K-L divergence, and MMD vs.\ $\epsilon$. Generated by \texttt{plot\_paper\_figures.py} from \texttt{bodhi\_vlm\_metrics.csv}.}
+\includegraphics[width=1.0\textwidth]{images/bodhi_vlm_metrics_vs_epsilon.png}
+\caption{Left: rMSE between original and noised features vs.\ $\epsilon$ (log scale). Right: Chi-square statistic, K-L divergence, and MMD vs.\ $\epsilon$.}
 \label{fig:script_metrics}
-\end{figure}
+\end{figure*}
 
 \subsection{Ablation and Membership Inference}
 Ablation (removing TDA, BUA, or EMPA) shows that the full pipeline is needed for accurate budget assessment; removing EMPA increases deviation from the ground-truth budget (see ablation figure in supplementary). Membership inference attack (MIA) accuracy on TSDCRF vs.\ PPEDCRF is reported in the thesis; both sit above random (0.5), suggesting further work for stronger guarantees.
