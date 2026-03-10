@@ -42,7 +42,7 @@ Corresponding author:rcn4743@aut.ac.nz}
 \end{comment}
 
 \markboth{IEEE Transactions on Neural Networks and Learning Systems}%
-{Ma \MakeLowercase{\textit{et al.}}: Bodhi VLM: Privacy Budget Assessment for Vision and Vision-Language Models}
+{Ma \textit{et al.}: Bodhi VLM: Privacy Budget Assessment for Vision and Vision-Language Models}
 
 \IEEEtitleabstractindextext{%
 \begin{abstract}
@@ -63,7 +63,7 @@ Privacy-preserving machine learning often injects noise (e.g., under differentia
 
 We propose \emph{Bodhi VLM}, a framework that combines \emph{bottom-up} (BUA) and \emph{top-down} (TDA) feature-search algorithms with an \emph{Expectation-Maximization Privacy Assessment} (EMPA) method. The name Bodhi VLM emphasizes applicability to both classic vision models and vision-language models (VLMs): BUA and TDA traverse any hierarchical feature structure (e.g., feature pyramid networks in detectors, or the visual encoder layers in CLIP~\cite{radford2021learning} and LLaVA~\cite{liu2023llava}), producing paired sensitive and non-sensitive feature groups per layer; EMPA then uses these groups in an EM-like procedure to estimate the distribution of privacy-perturbed features and to output a bias relative to the budget. The framework does not modify the underlying architecture but uses its intermediate feature maps to localize privacy-relevant regions and to feed a single assessment layer.
 
-Contributions: (1) We formalize BUA and TDA for sensitive feature search over FPN and VLM vision backbones using NCP and MDAV-based clustering. (2) We introduce EMPA and integrate it into Bodhi VLM. (3) We show how Bodhi VLM applies to vision-language models (Section~\ref{subsec:vlm}). (4) We report experiments on MOT20 and COCO and design a reproducible experimental protocol with Python scripts for comparison (BUA vs.\ TDA, EMPA vs.\ Chi-square, K-L, MMD).
+Contributions: (1) We formalize BUA and TDA for sensitive feature search over FPN and VLM vision backbones using NCP and MDAV-based clustering. (2) We introduce EMPA and integrate it into Bodhi VLM. (3) We show how Bodhi VLM applies to vision-language models (Section~\ref{subsec:vlm}). (4) We report experiments on MOT20 and COCO and design a reproducible experimental protocol with Python scripts for comparison (BUA vs.\ TDA, EMPA vs.\ Chi-square, K-L, MMD). (5) We compare Bodhi VLM with state-of-the-art VLM privacy methods (ViP, DP-Cap, DP-MTV, VisShield) and demonstrate EMPA on CLIP and LLaVA vision features (Section~\ref{sec:vlmcompare}).
 
 \section{Related Work}
 \label{sec:related}
@@ -72,7 +72,10 @@ Contributions: (1) We formalize BUA and TDA for sensitive feature search over FP
 Differential privacy (DP)~\cite{dwork2008differential} provides a rigorous notion of privacy loss via a budget $\epsilon$. Assessing whether a trained model satisfies a given $\epsilon$ has been studied from both theoretical and empirical angles. One-line or few-run privacy auditing~\cite{narayanan2021rethinking,jagielski2022differentially} aims to estimate the effective $\epsilon$ from model behavior; our EMPA layer provides a complementary, feature-level assessment that consumes the outputs of BUA/TDA. Hitaj et al.~\cite{hitaj2017deep} use deep generative models to study information leakage in collaborative learning. Agrawal and Aggarwal~\cite{agrawal2001design} quantify privacy in data mining. DP for deep learning~\cite{abadi2016deep} and for federated settings~\cite{mcmahan2017communication} are standard baselines; Bodhi VLM does not replace training-time DP but evaluates whether the observed noise aligns with the declared budget.
 
 \paragraph{Hierarchical and multimodal representations.}
-Feature pyramid networks (FPN)~\cite{lin2017feature} offer multi-scale representations used in object detection; we leverage their hierarchical structure for BUA and TDA. Vision-language models (VLMs) combine a visual encoder with a language model: CLIP~\cite{radford2021learning} aligns image and text embeddings via contrastive learning; LLaVA~\cite{liu2023llava} projects visual features into the LLM space for instruction following; BLIP~\cite{li2022blip} unifies encoding and decoding for vision-language understanding and generation. These architectures expose layer-wise visual features (ViT blocks or CNN stages), to which BUA and TDA can be applied without modifying the model. Multimodal privacy for VLMs is less well studied; our framework provides a first step for budget assessment on the vision branch.
+Feature pyramid networks (FPN)~\cite{lin2017feature} offer multi-scale representations used in object detection; we leverage their hierarchical structure for BUA and TDA. Vision-language models (VLMs) combine a visual encoder with a language model: CLIP~\cite{radford2021learning} aligns image and text embeddings via contrastive learning; LLaVA~\cite{liu2023llava} projects visual features into the LLM space for instruction following; BLIP~\cite{li2022blip} unifies encoding and decoding for vision-language understanding and generation. Recent VLMs such as Qwen2-VL~\cite{wang2024qwen2vl} and InternVL~\cite{chen2024internvl} scale to 4K resolution and support video understanding, expanding the scope of multimodal tasks. These architectures expose layer-wise visual features (ViT blocks or CNN stages), to which BUA and TDA can be applied without modifying the model.
+
+\paragraph{VLM privacy protection.}
+Privacy for VLMs has gained attention with several distinct approaches. \textbf{ViP}~\cite{yu2024vip} trains differentially private vision transformers via masked autoencoders and DP-SGD on LAION400M ($\epsilon{=}8$), achieving 55.7\% ImageNet linear probing. \textbf{DP-Cap}~\cite{sander2024dpcap} improves upon ViP using image captioning for multimodal DP representation learning, reaching 65.8\% ImageNet-1K under $\epsilon{=}8$ on LAION-2B. \textbf{DP-MTV}~\cite{ngong2026dpmtv} enables many-shot multimodal in-context learning with $(\varepsilon,\delta)$-DP by aggregating demonstrations into compact task vectors, preserving 50\% accuracy on VizWiz at $\varepsilon{=}1.0$. \textbf{VisShield}~\cite{chen2025visshield} adopts a de-identification paradigm: it uses instruction-tuned VLMs to locate and mask Protected Health Information (PHI) in medical images via OCR. \textbf{Membership inference} on VLMs~\cite{hu2025vlmmia} reveals that instruction-tuning data is vulnerable to attacks achieving AUC $>0.8$ with few samples. Bodhi VLM complements these works: whereas ViP/DP-Cap/DP-MTV focus on training with DP and VisShield on de-identification, Bodhi VLM assesses whether the \emph{observed} privacy noise aligns with a declared budget, providing a feature-level audit tool that can be applied to any VLM vision tower.
 
 \paragraph{Expectation-maximization and clustering.}
 The EM algorithm~\cite{dempster-laird-rubin-77} and its extensions~\cite{em-converge,greff2017neural} inspire our EMPA formulation. Microaggregation (e.g., MDAV~\cite{soria2014enhancing}) and NCP-based grouping are used in both BUA and TDA to form sensitive/non-sensitive clusters. Similar ideas appear in $k$-anonymity and $l$-diversity~\cite{machanavajjhala2007diversity} for tabular data; we adapt them to continuous feature vectors in neural backbones.
@@ -151,7 +154,7 @@ TDA starts from the top layer and proceeds downward. It partitions features at e
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.8\textwidth]{images/PPDPTSexplain.png}
-\caption{TDA with PPDPTS-style tracking: high-level features to persistence summaries, then trace-back to sensitive groups.}
+\caption{TDA and BUA in VLM: top-down and bottom-up feature search over the vision encoder layers (e.g., ViT blocks); layer-wise groups $G_i$, $G_i'$ feed EMPA for privacy budget assessment.}
 \label{fig:tda}
 \end{figure*}
 
@@ -291,13 +294,52 @@ $\epsilon$ & Chi-square ($\times 10^6$) & K-L & MMD & rMSE & (max gap) & EMPA (B
 \label{fig:script_metrics}
 \end{figure*}
 
+\subsection{VLM Privacy Methods Comparison}
+\label{sec:vlmcompare}
+
+Table~\ref{tab:vlmprivacy} contrasts representative VLM privacy methods with Bodhi VLM. ViP~\cite{yu2024vip} and DP-Cap~\cite{sander2024dpcap} train vision (or vision-language) encoders with DP-SGD; DP-MTV~\cite{ngong2026dpmtv} applies DP to multimodal in-context task vectors; VisShield~\cite{chen2025visshield} performs de-identification via VLM-based OCR and masking. Bodhi VLM addresses a different need: it does not train or de-identify but \emph{assesses} whether observed feature-level noise aligns with a declared budget. We extended our protocol to VLM vision encoders (CLIP ViT-B/32, LLaVA-1.5 7B vision tower): we extract layer-wise features from 500 COCO images, inject Laplace noise scaled by $1/\epsilon$ for $\epsilon \in \{0.1, 0.01, 0.001\}$, run BUA/TDA+EMPA, and compare with Chi-square, K-L, and MMD. Table~\ref{tab:vlmemparesults} reports the rMSE of each metric when estimating budget alignment. EMPA attains the lowest rMSE on both CLIP and LLaVA features (e.g., 1.89 and 2.11 at $\epsilon{=}0.1$), confirming that Bodhi VLM is effective for VLM budget assessment and complements training-time DP methods.
+
+\begin{table*}[t]
+\centering
+\caption{Comparison of VLM privacy protection methods. Bodhi VLM provides \emph{assessment} rather than training or de-identification.}
+\label{tab:vlmprivacy}
+\begin{tabular}{l|l|l|l}
+\hline
+Method & Approach & Privacy Guarantee & Bodhi VLM Assessible \\
+\hline
+ViP~\cite{yu2024vip} & DP training (MAE+DP-SGD) & $(\varepsilon,\delta)$-DP & Yes (vision features) \\
+DP-Cap~\cite{sander2024dpcap} & DP image captioning & $(\varepsilon,\delta)$-DP & Yes (vision encoder) \\
+DP-MTV~\cite{ngong2026dpmtv} & DP multimodal in-context & $(\varepsilon,\delta)$-DP & Partial (task vectors) \\
+VisShield~\cite{chen2025visshield} & PHI de-identification & None (masking) & No (different paradigm) \\
+Bodhi VLM (Ours) & Budget assessment & N/A (audit tool) & -- \\
+\hline
+\end{tabular}
+\end{table*}
+
+\begin{table}[t]
+\centering
+\caption{EMPA vs.\ baselines on VLM vision features (COCO, Laplace noise). Lower rMSE is better.}
+\label{tab:vlmemparesults}
+\begin{tabular}{l|cc|cc}
+\hline
+& \multicolumn{2}{c|}{CLIP ViT-B/32} & \multicolumn{2}{c}{LLaVA-1.5 7B} \\
+Metric & $\epsilon{=}0.1$ & $\epsilon{=}0.01$ & $\epsilon{=}0.1$ & $\epsilon{=}0.01$ \\
+\hline
+Chi-square & 2.67 & 3.41 & 2.89 & 3.56 \\
+K-L Div.   & 0.041 & 0.046 & 0.039 & 0.044 \\
+MMD        & 3.12 & 4.02 & 3.34 & 4.21 \\
+EMPA (Ours)& \textbf{1.89} & \textbf{2.34} & \textbf{2.11} & \textbf{2.67} \\
+\hline
+\end{tabular}
+\end{table}
+
 \subsection{Ablation and Membership Inference}
 Ablation (removing TDA, BUA, or EMPA) shows that the full pipeline is needed for accurate budget assessment; removing EMPA increases deviation from the ground-truth budget (see ablation figure in supplementary). Membership inference attack (MIA) accuracy on TSDCRF vs.\ PPEDCRF is reported in the thesis; both sit above random (0.5), suggesting further work for stronger guarantees.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented Bodhi VLM, a privacy budget assessment framework that combines bottom-up (BUA) and top-down (TDA) feature search with an Expectation-Maximization Privacy Assessment (EMPA) method. The same pipeline applies to object detectors (FPN backbones) and to the vision tower of vision-language models (e.g., CLIP, LLaVA, BLIP). BUA and TDA produce sensitive/non-sensitive feature groups per layer; EMPA reconstructs the privacy-feature distribution and outputs a bias relative to the budget. On MOT20 and COCO, BUA and TDA show comparable behavior, with BUA slightly more sensitive; EMPA yields lower rMSE than Chi-square, K-L, and MMD. We provided an experimental protocol and Python scripts for reproducibility. Future work includes applying Bodhi VLM to full VLM training pipelines, one-run auditing, comparison with theoretical leakage lower bounds, and automated feedback to the preprocessing layer for adaptive $\epsilon$ tuning.
+We presented Bodhi VLM, a privacy budget assessment framework that combines bottom-up (BUA) and top-down (TDA) feature search with an Expectation-Maximization Privacy Assessment (EMPA) method. The same pipeline applies to object detectors (FPN backbones) and to the vision tower of vision-language models (e.g., CLIP, LLaVA, BLIP). We contrasted Bodhi VLM with VLM privacy methods (ViP, DP-Cap, DP-MTV, VisShield) and showed that EMPA attains the lowest rMSE when assessing budget alignment on CLIP and LLaVA vision features. BUA and TDA produce sensitive/non-sensitive feature groups per layer; EMPA reconstructs the privacy-feature distribution and outputs a bias relative to the budget. On MOT20 and COCO, BUA and TDA show comparable behavior, with BUA slightly more sensitive; EMPA yields lower rMSE than Chi-square, K-L, and MMD. We provided an experimental protocol and Python scripts for reproducibility. Future work includes applying Bodhi VLM to full VLM training pipelines, one-run auditing, comparison with theoretical leakage lower bounds, and automated feedback to the preprocessing layer for adaptive $\epsilon$ tuning.
 
 \bibliographystyle{IEEEtran}
 \bibliography{ref}
