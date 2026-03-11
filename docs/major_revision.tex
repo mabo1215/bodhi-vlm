@@ -1,0 +1,466 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{longtable}
+\setlist[itemize]{topsep=2pt,itemsep=2pt,parsep=0pt,partopsep=0pt}
+\setlist[enumerate]{topsep=2pt,itemsep=2pt,parsep=0pt,partopsep=0pt}
+
+\title{Bodhi VLM Remaining Major Revision Checklist\\
+\large Only unresolved issues after comparing the revised manuscript against the previous review}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{How this checklist was prepared}
+This checklist only includes issues that \textbf{still remain} in the revised manuscript after comparison against the previous review. 
+Items that have already been adequately revised are intentionally omitted. 
+The comments below are written in a reviewer-oriented style and focus on what still needs improvement before submission to a strong journal venue.
+
+\section*{Overall Assessment of the Revision}
+The revised manuscript is substantially improved. In particular, the following major issues appear to have been addressed sufficiently and are therefore \textbf{not repeated here}:
+\begin{itemize}
+    \item The abstract and introduction now more clearly frame the work as \emph{feature-level privacy budget alignment assessment}, rather than implying formal end-to-end differential privacy certification.
+    \item The VLM-related claim has been narrowed compared with the earlier version, and the scope now more clearly emphasizes visual pathways rather than overstating full multimodal coverage.
+    \item The manuscript now distinguishes more clearly between the declared privacy budget, the simulated perturbation scale, and the observed feature perturbation.
+    \item A limitations/future-work discussion has been added, which improves the paper's credibility.
+\end{itemize}
+
+That said, several important issues remain unresolved. These are the issues that should still be revised.
+
+\section{Title, Abstract, and Positioning}
+
+\subsection*{Remaining issue 1: some claims are still slightly stronger than the current evidence supports}
+Although the manuscript is now much more careful than before, some places still read as if the proposed framework is directly applicable to VLMs in a broader sense than what is actually validated. The empirical validation still appears to be centered mainly on visual encoder / vision tower features under explicit perturbation settings, rather than the full cross-modal fusion or autoregressive language decoding pathway.
+
+\paragraph{What to do}
+Wherever the manuscript still says or implies that Bodhi VLM is ``directly usable for VLMs'' in a general sense, replace it with language that explicitly limits the current validation scope to visual encoders / vision towers.
+
+\paragraph{Recommended replacement text}
+\begin{verbatim}
+In this work, Bodhi VLM is validated primarily on the visual encoders
+(or vision towers) of representative vision-language models under an
+explicit perturbation mechanism. Extending the same budget-alignment
+assessment to full cross-modal fusion and language-generation pathways
+remains future work.
+\end{verbatim}
+
+\section{Problem Setting and Notation}
+
+\subsection*{Remaining issue 2: notation is improved, but there is still symbol overloading}
+A remaining technical writing problem is that some symbols are still overloaded across different parts of the manuscript. In particular, symbols such as \(u\) and \(v\) remain risky because they are used in the EMPA section for interference/observation semantics, while similar short symbols also appear in the algorithmic discussion of grouping logic. Even if this is technically distinguishable from context, it increases cognitive burden and makes the paper look less polished.
+
+\paragraph{What to do}
+Use disjoint notation families for:
+\begin{itemize}
+    \item sensitive and non-sensitive groups,
+    \item perturbation/interference variables,
+    \item observed features,
+    \item grouping indices and layer-wise sets.
+\end{itemize}
+
+\paragraph{Recommended notation}
+For group notation, use:
+\begin{equation}
+\mathcal{G}^{(s)}_i \quad \text{and} \quad \mathcal{G}^{(n)}_i
+\label{eq:group-notation-safe}
+\end{equation}
+instead of reusing short scalar-like symbols.
+
+For EMPA, keep:
+\begin{equation}
+v = t + u,
+\qquad
+u \sim p_u(\cdot \mid \epsilon),
+\label{eq:obs-model-safe}
+\end{equation}
+but avoid using \(u,v\) anywhere else in algorithm pseudocode.
+
+\section{BUA and TDA Algorithms}
+
+\subsection*{Remaining issue 3: Algorithm 1 and Algorithm 2 are still not fully reproducible}
+The revised manuscript improves the intuitive explanation of BUA and TDA, but the pseudocode still reads more like conceptual guidance than fully reproducible algorithms. Expressions such as
+\begin{quote}
+``split \(f\) into \(u\) and \(v\),'' \\
+``temp \(=(f \cap S_\epsilon)\cup V_i\),'' \\
+``update \(u \cup \text{NCP}(f \cup \text{temp})\)''
+\end{quote}
+remain too informal for a strong methods paper.
+
+A reviewer will likely ask:
+\begin{itemize}
+    \item What exactly is the input object at each loop: scalar, feature vector, token, patch, or set?
+    \item Is the split deterministic, threshold-based, MDAV-based, or NCP-based?
+    \item What is the order of operations between feature clustering, sensitive-score evaluation, and set propagation?
+    \item What is returned at each layer?
+\end{itemize}
+
+\paragraph{What to do}
+Rewrite both algorithms using explicit input/output definitions and layer-wise operations on feature sets.
+
+\paragraph{Recommended pseudocode template for BUA}
+\begin{verbatim}
+\begin{algorithm}[t]
+\caption{Bottom-Up Aggregation (BUA)}
+\label{alg:bua-clean}
+\KwIn{Layer-wise feature sets $\{X_i\}_{i=1}^{n}$, sensitive concept set $S_\epsilon$}
+\KwOut{Sensitive groups $\{G'_i\}_{i=1}^{n}$ and non-sensitive groups $\{G_i\}_{i=1}^{n}$}
+
+Initialize $H_1 \leftarrow X_1$\;
+\For{$i=1,2,\dots,n$}{
+    Compute sensitivity scores $s(x;S_\epsilon)$ for all $x \in X_i$\;
+    Partition $X_i$ into
+    $G'_i = \{x \in X_i : s(x;S_\epsilon)\ge \tau_i\}$ and
+    $G_i = X_i \setminus G'_i$\;
+    Aggregate $H_i \leftarrow \mathcal{U}(H_{i-1}, G_i, G'_i)$ if $i>1$\;
+}
+\Return{$\{G'_i\}_{i=1}^{n}, \{G_i\}_{i=1}^{n}$}
+\end{algorithm}
+\end{verbatim}
+
+\paragraph{Recommended pseudocode template for TDA}
+\begin{verbatim}
+\begin{algorithm}[t]
+\caption{Top-Down Analysis (TDA)}
+\label{alg:tda-clean}
+\KwIn{Layer-wise feature sets $\{X_i\}_{i=1}^{n}$, sensitive concept set $S_\epsilon$}
+\KwOut{Sensitive groups $\{G'_i\}_{i=1}^{n}$ and non-sensitive groups $\{G_i\}_{i=1}^{n}$}
+
+Initialize grouping at the top layer $X_n$\;
+\For{$i=n,n-1,\dots,2$}{
+    Compute sensitivity scores for all features in $X_i$\;
+    Partition $X_i$ into $G'_i$ and $G_i$\;
+    Compute inter-layer links
+    $L_i^{(s)} = G'_i \cap G'_{i-1}$ and
+    $L_i^{(n)} = G_i \cap G_{i-1}$\;
+    Update the lower-layer grouping using propagated top-down links\;
+}
+\Return{$\{G'_i\}_{i=1}^{n}, \{G_i\}_{i=1}^{n}$}
+\end{algorithm}
+\end{verbatim}
+
+\subsection*{Remaining issue 4: the role of NCP and MDAV is still not defined formally enough}
+Even after revision, the paper still relies on NCP and MDAV in a way that feels operational rather than formally specified. A strong reviewer may still ask:
+\begin{itemize}
+    \item Is NCP used as a clustering objective, a regularizer, or a post hoc cluster-quality measure?
+    \item Is MDAV applied in raw feature space, projected feature space, or score space?
+    \item What threshold separates sensitive from non-sensitive groups?
+\end{itemize}
+
+\paragraph{What to do}
+Add explicit mathematical definitions.
+
+\paragraph{Recommended equations}
+\begin{equation}
+s(x_{i,j};S_\epsilon) \in [0,1],
+\label{eq:sensitivity-score-remaining}
+\end{equation}
+
+\begin{equation}
+G'_i
+=
+\left\{
+x_{i,j} \in X_i \;:\; s(x_{i,j};S_\epsilon)\ge \tau_i
+\right\},
+\qquad
+G_i = X_i \setminus G'_i,
+\label{eq:sensitive-partition-remaining}
+\end{equation}
+
+\begin{equation}
+\operatorname{NCP}(C)
+=
+\sum_{a=1}^{d}
+w_a \, \operatorname{penalty}_a(C),
+\label{eq:ncp-remaining}
+\end{equation}
+
+\begin{equation}
+\operatorname{penalty}_a(C)
+=
+\frac{
+\max_{x \in C} x^{(a)} - \min_{x \in C} x^{(a)}
+}{
+R_a
+}.
+\label{eq:ncp-penalty-remaining}
+\end{equation}
+
+Then explicitly state whether MDAV is applied to \(X_i\), to a transformed version \(\phi(X_i)\), or to the sensitivity scores \(s(x_{i,j};S_\epsilon)\).
+
+\section{EMPA: This is still the main unresolved issue}
+
+\subsection*{Remaining issue 5: EMPA is now better positioned, but the mathematics is still the weakest part of the paper}
+This remains the single largest unresolved issue. The revised manuscript now appears more careful in not overselling EMPA as a formal DP estimator, which is a good correction. However, the mathematical presentation still risks criticism because:
+\begin{itemize}
+    \item the EM formulation is not yet fully standard or fully justified,
+    \item some update expressions still read like heuristic responsibilities rather than canonical posterior assignments,
+    \item the relation between the fitted mixture weights and the budget-discrepancy interpretation is still not sufficiently explicit,
+    \item theorem-style statements remain stronger than what the current derivation fully supports.
+\end{itemize}
+
+\paragraph{What to do}
+Either:
+\begin{enumerate}
+    \item fully formalize EMPA as a standard mixture-model-based estimator with a clearly defined likelihood and posterior responsibility, \textbf{or}
+    \item explicitly downgrade the mathematical claims and present EMPA as an \emph{EM-inspired budget-alignment estimator}.
+\end{enumerate}
+
+Given the current manuscript, the second route is safer.
+
+\subsection*{Remaining issue 6: theorem/proof language is still too strong}
+If Theorem III.1 / III.2 (or equivalent theorem-style statements) are still present in a strong form, they should be weakened unless the derivation is made fully rigorous. In particular, any appearance of wording such as ``up to normalization'' inside the central derivation will look mathematically loose.
+
+\paragraph{What to do}
+Replace theorem-style claims with proposition-style algorithmic statements, unless you provide:
+\begin{itemize}
+    \item a fully specified likelihood,
+    \item latent variable definitions,
+    \item normalized posterior responsibilities,
+    \item a correct M-step under simplex constraints,
+    \item and a precise statement of what is guaranteed to converge.
+\end{itemize}
+
+\paragraph{Recommended safer wording}
+\begin{verbatim}
+Under the standard assumptions of mixture-model EM, the iterative updates
+used in EMPA can be interpreted as an EM-inspired procedure for estimating
+a feature-level budget-discrepancy signal. In this work, EMPA should be
+interpreted as a post hoc alignment estimator rather than a formal estimator
+of end-to-end differential privacy parameters.
+\end{verbatim}
+
+\subsection*{Remaining issue 7: the EMPA equations should still be rewritten in a more standard form}
+A more standard and defensible presentation would be:
+
+\begin{equation}
+p(t \mid \Lambda)
+=
+\sum_{k=1}^{K} \lambda_k p_k(t),
+\qquad
+\lambda_k \ge 0,
+\qquad
+\sum_{k=1}^{K}\lambda_k = 1,
+\label{eq:mixture-model-remaining}
+\end{equation}
+
+\begin{equation}
+v = t + u,
+\qquad
+u \sim p_u(\cdot \mid \epsilon),
+\label{eq:obs-model-remaining}
+\end{equation}
+
+\begin{equation}
+p(v \mid \Lambda,\epsilon)
+=
+\sum_{k=1}^{K}
+\lambda_k
+\int
+p(v \mid t,\epsilon)\,p_k(t)\,dt,
+\label{eq:marginal-remaining}
+\end{equation}
+
+\begin{equation}
+\mathcal{L}(\Lambda)
+=
+\sum_{j=1}^{N}
+\log p(v_j \mid \Lambda,\epsilon),
+\label{eq:loglik-remaining}
+\end{equation}
+
+\begin{equation}
+\gamma_{jk}
+=
+p(z_j=k \mid v_j,\Lambda^{(r)},\epsilon)
+=
+\frac{
+\lambda_k^{(r)} p_k(v_j \mid \epsilon)
+}{
+\sum_{\ell=1}^{K}
+\lambda_\ell^{(r)} p_\ell(v_j \mid \epsilon)
+},
+\label{eq:responsibility-remaining}
+\end{equation}
+
+\begin{equation}
+\lambda_k^{(r+1)}
+=
+\frac{1}{N}
+\sum_{j=1}^{N}\gamma_{jk}.
+\label{eq:mstep-remaining}
+\end{equation}
+
+If the manuscript keeps its current nonstandard notation, the meaning of every symbol must be defined in one place and the probabilistic semantics must be made explicit.
+
+\subsection*{Remaining issue 8: the paper still needs a precise definition of what EMPA outputs}
+At the moment, the paper is still at risk of ambiguity on this point. Does EMPA output:
+\begin{itemize}
+    \item an estimated effective budget \(\hat{\epsilon}\),
+    \item a discrepancy signal,
+    \item a mixture-weight deviation score,
+    \item or a hypothesis test statistic?
+\end{itemize}
+
+The revised paper appears closer to the ``discrepancy signal'' interpretation, but this should be written explicitly.
+
+\paragraph{Recommended formalization}
+\begin{equation}
+\mathrm{BAS}_{\epsilon}
+=
+d\!\left(
+\hat{\Lambda}_{\epsilon},
+\Lambda_{\epsilon}^{\mathrm{ref}}
+\right),
+\label{eq:budget-alignment-score-remaining}
+\end{equation}
+where \(d(\cdot,\cdot)\) is a discrepancy function and \(\Lambda_{\epsilon}^{\mathrm{ref}}\) is the reference mixture pattern associated with the declared privacy budget under the chosen perturbation model.
+
+If the manuscript prefers a bias interpretation:
+\begin{equation}
+\mathrm{Bias}_{\epsilon}
+=
+\left\|
+\hat{\Lambda}_{\epsilon}
+-
+\Lambda_{\epsilon}^{\mathrm{ref}}
+\right\|_2.
+\label{eq:bias-remaining}
+\end{equation}
+
+This is still much clearer than saying only that EMPA outputs a bias ``relative to the budget.''
+
+\section{Experiments and Metrics}
+
+\subsection*{Remaining issue 9: the definition of rMSE is still not concrete enough for each table}
+The revised manuscript improves the metric discussion, but one important issue remains: the exact target of the reported rMSE is still not always fully explicit on a per-table basis.
+
+A strong reviewer may still ask:
+\begin{itemize}
+    \item What exactly is the reference target \(a_m^{\mathrm{ref}}\) in each experiment?
+    \item Is rMSE computed against a declared budget curve, a Laplace/Gaussian reference mechanism, or some other alignment target?
+    \item Is the reference the same across Tables I, III, and V?
+\end{itemize}
+
+\paragraph{What to do}
+For every table reporting rMSE, explicitly define in the caption or main text what the reference is.
+
+\paragraph{Recommended equation}
+\begin{equation}
+\mathrm{rMSE}
+=
+\sqrt{
+\frac{1}{M}
+\sum_{m=1}^{M}
+\left(
+\hat{a}_m - a_m^{\mathrm{ref}}
+\right)^2
+},
+\label{eq:rmse-remaining}
+\end{equation}
+and then state immediately below each table:
+\begin{quote}
+``Here \(a_m^{\mathrm{ref}}\) denotes [explicitly define it for this table].''
+\end{quote}
+
+\subsection*{Remaining issue 10: synthetic EMPA bias behavior still needs more candid interpretation}
+If the revised manuscript still reports that the EMPA bias remains nearly unchanged across multiple privacy budgets on synthetic hierarchical data, then this still needs to be framed carefully. This pattern suggests that the current bias is driven more by the group structure than by perturbation magnitude.
+
+\paragraph{What to do}
+State this explicitly as a limitation of the current EMPA formulation.
+
+\paragraph{Recommended text}
+\begin{verbatim}
+On the synthetic hierarchical data, the EMPA bias remains nearly constant
+across different privacy budgets. This suggests that, in the current
+formulation, the bias is influenced more strongly by the induced group
+structure than by the perturbation magnitude itself. Accordingly, this bias
+should be interpreted as a structural discrepancy signal rather than a
+standalone estimator of the effective privacy budget.
+\end{verbatim}
+
+\subsection*{Remaining issue 11: stronger statistical reporting is still missing}
+This remains an important empirical weakness. The revised manuscript still appears to rely mainly on single reported values without repeated runs, standard deviations, confidence intervals, or significance-oriented reporting.
+
+For a strong journal submission, reviewers may expect at least one of:
+\begin{itemize}
+    \item mean \(\pm\) standard deviation over repeated runs,
+    \item bootstrap confidence intervals,
+    \item sensitivity to random seed / sample subset,
+    \item or a small statistical stability analysis.
+\end{itemize}
+
+\paragraph{What to do}
+If rerunning all experiments is too expensive, at least repeat the most important tables (e.g., one detector setting and one VLM setting) for several seeds and report mean \(\pm\) std.
+
+\paragraph{Suggested reporting sentence}
+\begin{verbatim}
+All reported values are averaged over R runs with different random seeds,
+and we report mean ± standard deviation.
+\end{verbatim}
+
+\section{Comparison Baselines}
+
+\subsection*{Remaining issue 12: the baseline set is still relatively weak for the claimed task}
+The current comparisons against Chi-square, K-L divergence, and MMD are useful, but they are still generic distributional discrepancy metrics rather than strong task-specific privacy auditing baselines.
+
+A reviewer may still question whether EMPA is outperforming meaningful competitors or only generic distances.
+
+\paragraph{What to do}
+If feasible, add at least one stronger baseline, such as:
+\begin{itemize}
+    \item a simple regression baseline mapping perturbation magnitude to budget,
+    \item density-ratio estimation,
+    \item calibration-based discrepancy estimation,
+    \item or another feature-space privacy audit baseline.
+\end{itemize}
+
+If adding a new method is not feasible, then explicitly state that the current baselines are generic distributional references rather than dedicated budget-alignment estimators.
+
+\section{VLM Scope and Interpretation}
+
+\subsection*{Remaining issue 13: the VLM section is improved, but a few sentences should still be softened}
+The revision has already improved the VLM scope. However, any remaining sentence that sounds like the method has been validated on the entire multimodal reasoning pipeline should still be softened.
+
+\paragraph{Recommended safer wording}
+\begin{verbatim}
+These results indicate that the proposed grouping-and-assessment pipeline
+transfers across heterogeneous visual encoder architectures, including
+ViT-based and ResNet-based backbones. However, the present validation is
+limited to visual encoder features and does not yet evaluate full cross-modal
+fusion or language-generation pathways.
+\end{verbatim}
+
+\section{Conclusion and Limitations}
+
+\subsection*{Remaining issue 14: the limitations section is present, but it should explicitly mention EMPA sensitivity limitations}
+The revised manuscript now includes limitations, which is a strong improvement. However, the limitations discussion should explicitly mention that the current EMPA bias/discrepancy signal may be affected more by grouped representation structure than by perturbation scale in some settings.
+
+\paragraph{Recommended sentence}
+\begin{verbatim}
+In addition, the current EMPA discrepancy signal may, in some settings,
+reflect the induced group structure more strongly than the perturbation scale
+itself, which limits its interpretation as a direct proxy for the effective
+privacy budget.
+\end{verbatim}
+
+\section*{Final Summary of Remaining Revisions}
+At this stage, the manuscript is clearly stronger than the previous version, and several major earlier concerns appear to have been addressed. The remaining unresolved issues are now more focused:
+
+\begin{enumerate}
+    \item EMPA still needs a cleaner and more defensible mathematical presentation.
+    \item The algorithms for BUA and TDA still need to be rewritten in a more reproducible, implementation-oriented form.
+    \item Symbol overloading should still be cleaned up.
+    \item The exact reference target for rMSE should still be defined explicitly for each table.
+    \item The synthetic EMPA bias behavior should still be interpreted more candidly as a structural signal rather than a direct budget estimator.
+    \item Statistical robustness reporting is still missing.
+    \item The VLM claim should remain carefully limited to visual encoders / vision towers under explicit perturbation settings.
+\end{enumerate}
+
+If these remaining issues are addressed, the manuscript will become much more coherent and defensible from a reviewer's perspective.
+
+\end{document}
