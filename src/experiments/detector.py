@@ -3,6 +3,7 @@
 import os
 import csv
 import glob
+import warnings
 import numpy as np
 import torch
 from core.pipeline import assess_privacy_budget_from_features
@@ -28,7 +29,9 @@ def _subsample_layers(feats_list: list, max_points: int = MAX_POINTS_PER_LAYER, 
 def _add_noise_to_images(images: torch.Tensor, epsilon: float, seed: int, scale: float = 1.0) -> torch.Tensor:
     sigma = scale / (epsilon + 1e-8)
     g = torch.Generator(device=images.device).manual_seed(seed)
-    return torch.clamp(images + torch.randn_like(images, generator=g) * sigma, 0.0, 1.0)
+    # randn_like() does not accept generator; use randn(..., generator=g) with same shape
+    noise = torch.randn(images.shape, device=images.device, dtype=images.dtype, generator=g)
+    return torch.clamp(images + noise * sigma, 0.0, 1.0)
 
 
 def _collect_yolo_features(model, images: torch.Tensor) -> list:
@@ -65,6 +68,27 @@ def _collect_yolo_features(model, images: torch.Tensor) -> list:
     return feats_per_layer
 
 
+def _first_4d_tensor(obj):
+    """Extract the first 4D (B,C,H,W) tensor from nested tuple/list/dict from DETR backbone output."""
+    if isinstance(obj, torch.Tensor) and obj.dim() == 4:
+        return obj
+    if isinstance(obj, torch.Tensor):
+        return None
+    if isinstance(obj, (tuple, list)):
+        for item in obj:
+            t = _first_4d_tensor(item)
+            if t is not None:
+                return t
+        return None
+    if isinstance(obj, dict):
+        for k in sorted(obj.keys()):
+            t = _first_4d_tensor(obj[k])
+            if t is not None:
+                return t
+        return None
+    return None
+
+
 def _collect_detr_features(model, processor, images: torch.Tensor, device: str) -> list:
     feats_list = []
     # Images are already in [0, 1]; avoid double rescale warning
@@ -73,9 +97,9 @@ def _collect_detr_features(model, processor, images: torch.Tensor, device: str) 
     pixel_values = inp["pixel_values"].to(device)
 
     def hook_fn(m, inp, out):
-        x = out[0] if isinstance(out, (tuple, list)) else (out if isinstance(out, torch.Tensor) else list(out.values())[-1])
-        if not isinstance(x, torch.Tensor):
-            x = x[0] if isinstance(x, (tuple, list)) else x
+        x = _first_4d_tensor(out)
+        if x is None:
+            return
         b, c, h, w = x.shape
         feats_list.append(x.permute(0, 2, 3, 1).reshape(b * h * w, c).detach().cpu().numpy())
 
@@ -146,11 +170,19 @@ def _run_detr(device: str, images: torch.Tensor, epsilon: float, seed: int):
     log = logging.getLogger("transformers.modeling_utils")
     old_level = log.level
     log.setLevel(logging.WARNING)
-    try:
-        model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50", cache_dir=cache)
-        processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50", cache_dir=cache)
-    finally:
-        log.setLevel(old_level)
+    # Suppress PyTorch "copying from non-meta to meta parameter" when loading ResNet backbone
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=".*copying from a non-meta parameter.*meta parameter.*",
+            category=UserWarning,
+            module="torch.nn.modules.module",
+        )
+        try:
+            model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50", cache_dir=cache)
+            processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50", cache_dir=cache)
+        finally:
+            log.setLevel(old_level)
     model.to(device)
     model.eval()
     feats_orig = _subsample_layers(_collect_detr_features(model, processor, images, device), seed=seed)

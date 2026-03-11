@@ -127,3 +127,57 @@ def compare_metrics(
     nois_flat = np.asarray(noised).flatten()
     wass1 = float(stats.wasserstein_distance(orig_flat, nois_flat))
     return {"chi2": chi2, "kl": kl, "mmd": mmd, "rmse": rms, "wass1": wass1}
+
+
+def moment_features(original: np.ndarray, noised: np.ndarray) -> np.ndarray:
+    """Summary statistics of (original, noised) for regression: [mean(Δ), std(Δ), mean(|Δ|), ...]."""
+    orig = np.asarray(original).flatten()
+    nois = np.asarray(noised).flatten()
+    delta = nois - orig
+    return np.array([
+        np.mean(delta), np.std(delta) + 1e-10,
+        np.mean(np.abs(delta)), np.median(np.abs(delta)),
+        np.percentile(np.abs(delta), 90),
+    ], dtype=float)
+
+
+def moment_reg_rmse(
+    epsilons: np.ndarray,
+    features_list: list,
+    fit_intercept: bool = True,
+) -> float:
+    """
+    Task-matched baseline: regress epsilon from moment features.
+    features_list[i] = (orig, noised) for epsilons[i]. Fit eps = f(z), report rMSE.
+    """
+    from numpy.linalg import lstsq
+    X = np.array([moment_features(o, n) for o, n in features_list])
+    y = np.asarray(epsilons, dtype=float)
+    if fit_intercept:
+        X = np.column_stack([np.ones(len(X)), X])
+    coef, _, _, _ = lstsq(X, y, rcond=None)
+    y_pred = X @ coef
+    return float(np.sqrt(np.mean((y - y_pred) ** 2)))
+
+
+def noise_mle_rmse_with_true(
+    original: np.ndarray,
+    noised: np.ndarray,
+    true_epsilon: float,
+    epsilons_grid: np.ndarray,
+    scale: float = 1.0,
+) -> float:
+    """NoiseMLE: argmax_ε log p(Δf|ε), then rMSE(ε*, true_epsilon)."""
+    delta = np.asarray(noised).flatten() - np.asarray(original).flatten()
+    n = len(delta)
+    if n == 0:
+        return float("nan")
+    best_ll = -np.inf
+    best_eps = epsilons_grid[0]
+    for ep in epsilons_grid:
+        sigma2 = (scale / (ep + 1e-10)) ** 2
+        log_lik = -0.5 * n * (np.log(2 * np.pi * sigma2) + np.sum(delta ** 2) / (n * sigma2))
+        if log_lik > best_ll:
+            best_ll = log_lik
+            best_eps = ep
+    return float(np.sqrt((best_eps - true_epsilon) ** 2))

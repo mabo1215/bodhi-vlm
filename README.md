@@ -16,7 +16,9 @@ All instructions below are in English.
 
 | Path | Description |
 |------|-------------|
-| `paper/` | Git submodule pointing to the Overleaf manuscript repo. Populated when cloning with `--recurse-submodules` or after `git submodule update --init`. |
+- **Keep paper in sync on pull:**  
+  This repo is configured so `git pull` updates submodules to the commit recorded by the parent (`pull.recurseSubmodules = true`). After pulling, `paper/` will match the commit the main repo expects. To update `paper/` to the latest from its own remote:  
+  `git submodule update --remote paper`
 | `src/` | Source code: unified entry (`main.py` + `config.json`), utilities (`utils/`), core pipeline (`core/`), experiments (`experiments/`), and examples (`examples/`). |
 | `requirements.txt` | Python dependencies for experiments, figures, and detector/VLM integrations. |
 | `results/` | Optional output directory for experiment CSV and figures (created on demand). |
@@ -46,7 +48,7 @@ python main.py
 
 This uses `src/config.json` and writes CSVs/figures to `results/`. All models (e.g. `*.pt`, Hugging Face, torch.hub) are downloaded under **`src/models/`** (subdirs: `huggingface/`, `torch_hub/`, `weights/`). The script also downloads test images to **`data/test_images/`** so detector runs (YOLO/DETR) can produce real detections; if the download fails, the detector falls back to random tensors.
 
-**Hugging Face token (gated models like BLIP):** If you see “is not a valid model identifier” or permission errors, create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) and put it in a **`.env`** file in the repo root (`.env` is gitignored). Either run `python scripts/setup_hf_token.py` and paste the token, or create `.env` manually with one line: `HF_TOKEN=hf_xxxxxxxx...`.
+**Hugging Face token (gated models like BLIP):** If you see “is not a valid model identifier” or permission errors, create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) and put it in a **`.env`** file in the repo root (`.env` is gitignored). Either run `python src/scripts/setup_hf_token.py` (from repo root) and paste the token, or create `.env` manually with one line: `HF_TOKEN=hf_xxxxxxxx...`.
 
 ---
 
@@ -63,7 +65,7 @@ The `src/` directory is organized as follows:
 | `utils/grouping.py` | Grouping: MDAV-like clustering, BUA/TDA (`mdav_like_cluster`, `bua_style`, `tda_style`). |
 | `core/pipeline.py` | High-level pipeline: `assess_privacy_budget_from_features`, `group_features_bua_tda`. |
 | `experiments/synthetic.py` | Synthetic multi-seed experiments → `bodhi_vlm_metrics.csv` and summary figures. |
-| `experiments/detector.py` | Detector experiments (YOLO/DETR) → `detector_metrics.csv`; uses `data/test_images/` when present (see `scripts/download_detector_test_images.py`). |
+| `experiments/detector.py` | Detector experiments (YOLO/DETR) → `detector_metrics.csv`; uses `data/test_images/` when present (see `src/scripts/download_detector_test_images.py`). |
 | `experiments/vlm.py` | VLM experiments (CLIP/BLIP) → `vlm_metrics.csv`. |
 | `experiments/aggregate.py` | Aggregate multi-seed metrics and emit LaTeX tables (`detector_tab_rmse.tex`, `vlm_tab_results.tex`). |
 | `experiments/interpretability.py` | Interpretability figures → `bodhi_vlm_sensitive_dist.png`, `bodhi_vlm_tsne.png`. |
@@ -114,7 +116,39 @@ Or from the repo root: `bash paper/build_paper.sh` (Unix) or `paper\build_paper.
 
 ## Installation
 
-Use Python 3.10+ and install from the project root:
+Use Python 3.10+ and install from the project root.
+
+### Create and use a virtual environment (recommended)
+
+**Windows (PowerShell or cmd):**
+
+```powershell
+cd bodhi-vlm
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**Linux / macOS / Git Bash:**
+
+```bash
+cd bodhi-vlm
+python3 -m venv .venv
+source .venv/bin/activate   # Linux/macOS
+# or: source .venv/Scripts/activate   # Git Bash on Windows
+pip install -r requirements.txt
+```
+
+After this, `run_all.sh` will use `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python` (Unix) automatically. To run without activating the venv:
+
+- **Windows (PowerShell):** `.\run_all.sh` or `bash run_all.sh` (if Bash is available).
+- **Or run Python directly:**  
+  `$env:PYTHONPATH="src"; .venv\Scripts\python.exe src/main.py --config src/config.json`  
+  (PowerShell) or  
+  `set PYTHONPATH=src && .venv\Scripts\python.exe src/main.py --config src/config.json`  
+  (cmd).
+
+### Global install (no venv)
 
 ```bash
 pip install -r requirements.txt

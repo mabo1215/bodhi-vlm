@@ -1,654 +1,781 @@
-% Reviewed manuscript source: :contentReference[oaicite:0]{index=0}
+\section*{Major Revision Checklist for \textit{Bodhi VLM}}
 
-\section*{Overall Recommendation}
+\subsection*{How to Use This Checklist}
+This checklist is organized by manuscript section and focuses only on \textbf{major-revision-level issues}. Each item is written so it can be directly used for revision planning, author rebuttal preparation, and internal paper restructuring. The goal is to move the paper from a \emph{promising framework paper} toward a \emph{top-tier journal submission} with a defensible problem definition, stronger evidence, and a tighter claim--evidence match.
 
-\textbf{Recommendation: Major Revision (not ready for acceptance in current form).}
+\bigskip
 
-The manuscript addresses a timely and potentially important problem: \emph{post hoc feature-level auditing of privacy-budget alignment} in vision backbones and VLM vision encoders. The paper is improved relative to a more over-claimed framing because it now explicitly states that Bodhi VLM is \emph{not} a formal DP certifier and that the results are restricted to \emph{feature-level auditing under controlled additive perturbation models}. This narrowing is appropriate.
+\noindent
+\textbf{Important note.} I can still prepare this checklist based on the paper I just reviewed in this conversation. However, the uploaded PDF is no longer available to reopen on my side. Therefore, the checklist below is based on the manuscript content I already analyzed, not on a fresh re-parse of the expired file. If you want, you can re-upload the PDF afterward and I can produce a second-pass version with even more line-specific comments.
 
-However, at the standard of \emph{IEEE Transactions on Neural Networks and Learning Systems}, the paper still has several serious weaknesses that prevent acceptance in its current form. The most important issues are:
+\section{Title and Overall Positioning}
 
-\begin{enumerate}
-\item the paper still does not establish a sufficiently strong \textbf{task definition and evaluation target};
-\item the \textbf{mathematical role of EMPA} remains only partially justified;
-\item the \textbf{experimental evidence is not strong enough} to support the claimed usefulness of the method;
-\item the \textbf{statistical protocol is inadequate} for a top-tier journal;
-\item the \textbf{baselines are weak or not truly task-matched};
-\item several \textbf{notation, reproducibility, and caption-level clarity} issues remain.
-\end{enumerate}
+\subsection*{Major Revision Item 1: Narrow the paper's central claim}
+\textbf{Problem.} The current title and manuscript framing suggest that the paper performs \emph{privacy budget assessment} in a broad sense. However, the actual method evaluates a \emph{feature-level discrepancy signal under an evaluator-specified perturbation model}. This is substantially narrower than estimating a true privacy budget, certifying differential privacy, or auditing end-to-end multimodal privacy guarantees.
 
-In short, the paper has a publishable core idea, but it still reads more like an exploratory framework paper than a rigorously validated TNNLS article.
+\textbf{Why this matters.} A top-tier journal will reject papers whose title and abstract imply a stronger technical claim than the experiments actually support.
 
-\section*{Summary of the Paper}
+\textbf{Required revision.}
+\begin{itemize}
+    \item Revise the title so that it reflects \emph{feature-level budget-alignment auditing} rather than generic \emph{privacy budget assessment}.
+    \item Replace broad references to ``vision and vision-language models'' with the more precise scope:
+    \[
+    \text{vision backbones and VLM vision encoders}.
+    \]
+    \item Avoid wording that implies formal privacy certification, effective $\epsilon$ estimation, or full-pipeline VLM auditing unless such claims are explicitly proven.
+\end{itemize}
 
-The paper proposes \emph{Bodhi VLM}, a feature-level privacy-budget auditing framework for vision backbones and VLM vision encoders. The framework consists of three modules:
+\textbf{Suggested title direction.}
+\begin{quote}
+\textit{Bodhi: Feature-Level Budget-Alignment Auditing for Vision Backbones and VLM Vision Encoders}
+\end{quote}
 
-\begin{enumerate}
-\item \textbf{BUA} (Bottom-Up Analysis), which partitions layer-wise features into sensitive and non-sensitive groups from low to high layers;
-\item \textbf{TDA} (Top-Down Analysis), which performs an analogous grouping from high to low layers;
-\item \textbf{EMPA} (Expectation-Maximization Privacy Assessment), which fits a mixture model to sensitive-group perturbed features and compares the fitted distribution against a reference perturbation pattern under a declared privacy budget $\epsilon$.
-\end{enumerate}
+\section{Abstract}
 
-The experiments cover detector backbones (YOLOv4, PPDPTS, DETR, MDCRF+YOLO) and VLM vision encoders (CLIP, LLaVA, BLIP), mainly under synthetic Gaussian or Laplace perturbations with scale proportional to $1/\epsilon$.
+\subsection*{Major Revision Item 2: Rewrite the abstract to eliminate claim inflation}
+\textbf{Problem.} The abstract currently reads as if the method can assess privacy budgets for vision and VLM systems in a fairly general sense. The experimental evidence does not support that broad interpretation.
 
-\section*{Strengths}
+\textbf{Why this matters.} The abstract is where reviewers first assess whether the paper is overclaiming.
 
-\begin{enumerate}
-\item The paper tackles an interesting and underexplined practical question: how to \emph{audit} whether observed perturbation in intermediate representations is aligned with a declared privacy budget.
-\item The manuscript now makes an important distinction between \emph{empirical budget-alignment auditing} and \emph{formal differential privacy guarantees}, which is necessary and welcome.
-\item The effort to unify detector backbones and VLM visual encoders under one layer-wise grouping pipeline is conceptually interesting.
-\item The BUA/TDA decomposition is intuitive and potentially useful as a general feature attribution/grouping scaffold.
-\item The paper includes algorithms, explicit equations, and a reproducibility-oriented table, which is the correct direction.
-\end{enumerate}
+\textbf{Required revision.}
+\begin{itemize}
+    \item Explicitly define the paper as an \emph{empirical feature-level auditing framework}.
+    \item State that the audit is conducted \emph{under a reference perturbation model specified by the evaluator}.
+    \item State clearly that the paper \textbf{does not} provide:
+    \begin{itemize}
+        \item formal differential privacy certification,
+        \item end-to-end VLM privacy guarantees,
+        \item a universal estimator of the effective privacy budget.
+    \end{itemize}
+    \item Replace generic statements such as ``assesses privacy budgets'' with more defensible language such as
+    \[
+    \text{audits alignment between declared perturbation settings and observed feature-level perturbation patterns}.
+    \]
+\end{itemize}
 
-\section*{Major Concerns}
-
-\subsection*{1. The paper still lacks a sharp and fully defensible target of estimation}
-
-\textbf{Problem.}  
-The manuscript is now more careful than before, but the exact object being estimated is still not sufficiently precise. In Section III-A and Section III-G, the paper alternates between terms such as \emph{budget-alignment score}, \emph{privacy discrepancy signal}, \emph{bias}, \emph{rMSE to a reference}, and \emph{assessment under declared budget $\epsilon$}. These are not interchangeable quantities.
-
-At present, the paper defines
+\textbf{Suggested abstract-level formalization.}
+Define the paper's task as:
 \[
-A(\tilde f, f, S_\epsilon, \epsilon)
+\mathcal{A}_{\text{audit}}
+=
+\mathcal{A}\!\left(
+\tilde{f}, f, S, \epsilon ; \mathcal{M}_{\mathrm{ref}}, \Pi, \phi
+\right),
 \]
-as a scalar assessment signal, and later defines
+where
+\begin{itemize}
+    \item $f$ is the original feature representation,
+    \item $\tilde{f}$ is the perturbed feature representation,
+    \item $S$ is the evaluator-defined sensitive subset or concept set,
+    \item $\epsilon$ is the declared privacy parameter,
+    \item $\mathcal{M}_{\mathrm{ref}}$ is the reference perturbation model,
+    \item $\Pi$ is the feature grouping/correspondence operator,
+    \item $\phi$ denotes the fitting and preprocessing protocol.
+\end{itemize}
+
+\section{Introduction}
+
+\subsection*{Major Revision Item 3: Add a rigorous problem-definition paragraph}
+\textbf{Problem.} The introduction motivates privacy auditing well, but it does not define the exact mathematical object that the paper estimates. As a result, the manuscript drifts among three notions:
+\begin{enumerate}
+    \item declared privacy budget $\epsilon$,
+    \item perturbation scale induced by a reference mechanism,
+    \item empirical discrepancy output by EMPA.
+\end{enumerate}
+
+\textbf{Why this matters.} If these three are not separated cleanly, the reader will assume the paper estimates or verifies true privacy loss.
+
+\textbf{Required revision.}
+Insert a formal problem-definition paragraph near the end of the introduction.
+
+\textbf{Recommended LaTeX formulation.}
 \[
-\mathrm{BAS}_\epsilon := d\!\left(\Theta_\epsilon, \Theta_\epsilon^{\mathrm{ref}}\right),
+\textbf{Input: } (f,\tilde{f},S,\epsilon,\mathcal{M}_{\mathrm{ref}}),
 \qquad
-\mathrm{Bias}_\epsilon := \left\|\lambda_\epsilon - \lambda_\epsilon^{\mathrm{ref}}\right\|_2.
+\textbf{Output: } \mathrm{BAS}_\epsilon,
 \]
-But the paper does not fully specify which of these is the \emph{primary target} of the method, how these quantities relate to each other across all tables/figures, and which quantity should be interpreted as the actual output of Bodhi VLM.
+where $\mathrm{BAS}_\epsilon$ is a \emph{budget-alignment score} measuring the discrepancy between the observed perturbed feature distribution and a reference perturbation distribution induced by $\mathcal{M}_{\mathrm{ref}}$ under declared budget $\epsilon$.
 
-This matters because the empirical story changes depending on the chosen target. In particular, Section IV-B.4 explicitly shows that the EMPA bias is largely insensitive to $\epsilon$ in the synthetic setting, which weakens its use as a budget-sensitive auditing quantity.
+Then explicitly state:
+\[
+\mathrm{BAS}_\epsilon \neq \epsilon,
+\qquad
+\mathrm{BAS}_\epsilon \not\Rightarrow (\epsilon,\delta)\text{-DP certification}.
+\]
 
-\textbf{Location.}  
-Section III-A, Section III-G, Table III, Table IV, Table V, Table VII, Section IV-B.4, Section IV-E(5)--(7).
+\subsection*{Major Revision Item 4: Add a paragraph clarifying scope limitations}
+\textbf{Problem.} The current introduction gives the impression that the method applies to full VLM pipelines.
 
-\textbf{Why this matters technically.}  
-A TNNLS paper must define a primary learning/inference objective with clear semantics. Here, the method appears to output at least three different quantities:
+\textbf{Required revision.}
+Add a limitation paragraph that states:
+\begin{itemize}
+    \item For multimodal models, the current study evaluates \textbf{vision encoders / vision towers}, not the full language-generation pipeline.
+    \item The method audits feature perturbation alignment, not semantic leakage of generated text.
+    \item End-to-end multimodal privacy remains future work.
+\end{itemize}
 
-\begin{align}
-A(\tilde f,f,S_\epsilon,\epsilon) &\in \mathbb{R}, \\
-\mathrm{BAS}_\epsilon &= d\!\left(\Theta_\epsilon,\Theta_\epsilon^{\mathrm{ref}}\right), \\
-\mathrm{Bias}_\epsilon &= \left\|\lambda_\epsilon-\lambda_\epsilon^{\mathrm{ref}}\right\|_2.
-\end{align}
+\section{Related Work}
 
-The paper must decide whether:
+\subsection*{Major Revision Item 5: Reorganize related work by task, not by model family}
+\textbf{Problem.} The current related-work discussion risks comparing fundamentally different problem settings under one umbrella.
+
+\textbf{Why this matters.} Reviewers will reject scope comparisons that blur distinctions between training-time DP, inference-time masking, de-identification, and post hoc auditing.
+
+\textbf{Required revision.}
+Split the related work into four clearly separated categories:
 \begin{enumerate}
-\item $\mathrm{BAS}_\epsilon$ is the core method output and $\mathrm{Bias}_\epsilon$ is a restricted diagnostic;
-\item $\mathrm{Bias}_\epsilon$ is the actual reported estimator;
-\item or both are secondary diagnostics around a broader auditing objective.
+    \item Formal privacy mechanisms for vision and multimodal learning.
+    \item Empirical privacy auditing / leakage estimation methods.
+    \item Sensitive-region localization and feature attribution methods.
+    \item Distribution discrepancy estimation and two-sample comparison methods.
 \end{enumerate}
 
-\textbf{Required fix.}  
-Add a short subsection that defines the \emph{primary} output, the \emph{secondary} diagnostics, and the exact use of each in experiments. For example:
-
-\begin{verbatim}
-\subsubsection*{Primary and secondary outputs of Bodhi VLM}
-The primary output of Bodhi VLM is the budget-alignment score
+\textbf{Add a scope-positioning sentence such as:}
 \[
-\mathrm{BAS}_\epsilon = d(\Theta_\epsilon,\Theta_\epsilon^{\mathrm{ref}}),
+\text{Bodhi is not a training-time privacy mechanism; it is a post hoc feature-level auditing framework.}
 \]
-which compares the fitted sensitive-feature distribution to a
-reference sensitive-feature distribution under the same declared
-budget and perturbation family.
-The quantity
+
+\subsection*{Major Revision Item 6: Add missing baseline families in the literature discussion}
+\textbf{Problem.} The paper compares mainly against generic distances such as K-L divergence or MMD, but does not sufficiently position itself against task-relevant alternatives.
+
+\textbf{Required revision.}
+Add discussion of the following baseline families:
+\begin{itemize}
+    \item direct perturbation-scale estimation,
+    \item likelihood-based mechanism fitting,
+    \item classifier two-sample testing,
+    \item Wasserstein / energy distance methods,
+    \item simple regression-based budget prediction from moments or summary statistics.
+\end{itemize}
+
+\section{Problem Formulation and Notation}
+
+\subsection*{Major Revision Item 7: Separate the sensitive set from the privacy budget in notation}
+\textbf{Problem.} Notation of the form $S_\epsilon$ suggests that the sensitive set depends on $\epsilon$, although in the current methodology the sensitive subset is largely evaluator-defined or detector-induced rather than budget-conditioned.
+
+\textbf{Why this matters.} This notation creates conceptual confusion.
+
+\textbf{Required revision.}
+Use notation such as
 \[
-\mathrm{Bias}_\epsilon = \|\lambda_\epsilon-\lambda_\epsilon^{\mathrm{ref}}\|_2
+S^{(\mathrm{sens})}
+\quad \text{or} \quad
+S_{\mathrm{sens}}
 \]
-is used only as a restricted weight-only diagnostic and should not
-be interpreted as the main output when means and variances are
-included in $\Theta_\epsilon$.
-\end{verbatim}
+instead of $S_\epsilon$, unless the manuscript explicitly proves a budget-dependent sensitive-set construction.
 
-\subsection*{2. EMPA is operationally clearer than before, but still not mathematically strong enough for a top-tier method paper}
+\subsection*{Major Revision Item 8: Define the audit object and reference model explicitly}
+\textbf{Required revision.}
+Insert a dedicated definition block.
 
-\textbf{Problem.}  
-Section III-G is improved because it now provides an explicit diagonal-Gaussian mixture model:
+\textbf{Suggested LaTeX text.}
+\begin{align}
+f &\in \mathbb{R}^{d}, \\
+\tilde{f} &= T_{\mathrm{obs}}(f), \\
+\tilde{f}^{\,\mathrm{ref}}_{\epsilon} &= T_{\mathrm{ref},\epsilon}(f),
+\end{align}
+where $T_{\mathrm{obs}}$ denotes the observed perturbation process and $T_{\mathrm{ref},\epsilon}$ denotes an evaluator-specified reference perturbation mechanism at declared budget $\epsilon$.
+
+The auditing task is then to quantify the discrepancy
 \[
-p(v \mid \Theta_\epsilon)
+D_\epsilon
+=
+D\!\left(
+\mathbb{P}(\tilde{f}\mid f,S_{\mathrm{sens}}),
+\mathbb{P}(\tilde{f}^{\,\mathrm{ref}}_{\epsilon}\mid f,S_{\mathrm{sens}})
+\right),
+\]
+or its structured approximation induced by BUA/TDA and EMPA.
+
+\section{Method Section: BUA and TDA}
+
+\subsection*{Major Revision Item 9: Justify the sensitive-partition heuristic}
+\textbf{Problem.} BUA and TDA are currently presented as if they naturally identify sensitive features, but they are in fact heuristic grouping procedures driven by task-specific scores, thresholds, and correspondence rules.
+
+\textbf{Why this matters.} If the partition is unreliable, all downstream EMPA outputs are unstable and hard to interpret.
+
+\textbf{Required revision.}
+Add a subsection titled something like:
+\[
+\text{``Why BUA/TDA is a reasonable approximation to sensitive feature localization.''}
+\]
+
+This subsection should explain:
+\begin{itemize}
+    \item what signal is used to define sensitivity,
+    \item why that signal should correspond to privacy-relevant content,
+    \item what assumptions are made,
+    \item what failure cases are expected.
+\end{itemize}
+
+\subsection*{Major Revision Item 10: State the assumptions underlying cross-layer correspondence}
+\textbf{Problem.} The cross-layer mapping operator is currently heuristic and insufficiently justified.
+
+\textbf{Required revision.}
+Explicitly state the approximation:
+\[
+\Pi_{i \rightarrow i-1}: \mathcal{F}_i \rightarrow \mathcal{F}_{i-1}
+\]
+is not an exact semantic correspondence operator, but a practical approximation used to propagate sensitivity across layers.
+
+Then add an assumption block such as:
+\[
+\textbf{Assumption A1:}
+\quad
+\Pi_{i \rightarrow i-1}
+\text{ preserves coarse sensitive/non-sensitive structure sufficiently for auditing purposes.}
+\]
+
+\subsection*{Major Revision Item 11: Add complexity analysis for BUA/TDA}
+\textbf{Problem.} A top-tier journal expects runtime and scalability discussion.
+
+\textbf{Required revision.}
+Provide per-layer and total complexity.
+
+For example, if the grouping plus traversal cost is dominated by pairwise operations, state a bound such as:
+\[
+\mathcal{O}\!\left(\sum_{i=1}^{L} n_i^2\right)
+\quad \text{or} \quad
+\mathcal{O}\!\left(\sum_{i=1}^{L} n_i k_i\right),
+\]
+depending on the actual implementation.
+
+\section{Method Section: EMPA}
+
+\subsection*{Major Revision Item 12: Strengthen the formal definition of EMPA}
+\textbf{Problem.} The current presentation suggests that EMPA captures budget alignment, but the equations and experiments indicate that the main reported quantity may be dominated by group structure or mixture assignment rather than perturbation strength.
+
+\textbf{Required revision.}
+Give a complete hierarchical definition of EMPA.
+
+A recommended structure is:
+\begin{align}
+\Theta_{\epsilon}^{\mathrm{obs}}
+&=
+\left(
+\lambda^{\mathrm{obs}}_{\epsilon},
+\mu^{\mathrm{obs}}_{\epsilon},
+\Sigma^{\mathrm{obs}}_{\epsilon}
+\right), \\
+\Theta_{\epsilon}^{\mathrm{ref}}
+&=
+\left(
+\lambda^{\mathrm{ref}}_{\epsilon},
+\mu^{\mathrm{ref}}_{\epsilon},
+\Sigma^{\mathrm{ref}}_{\epsilon}
+\right),
+\end{align}
+and define the budget-alignment score as
+\begin{equation}
+\mathrm{BAS}_{\epsilon}
+=
+d_{\lambda}\!\left(
+\lambda^{\mathrm{obs}}_{\epsilon},
+\lambda^{\mathrm{ref}}_{\epsilon}
+\right)
++
+\alpha \,
+d_{\mu}\!\left(
+\mu^{\mathrm{obs}}_{\epsilon},
+\mu^{\mathrm{ref}}_{\epsilon}
+\right)
++
+\beta \,
+d_{\Sigma}\!\left(
+\Sigma^{\mathrm{obs}}_{\epsilon},
+\Sigma^{\mathrm{ref}}_{\epsilon}
+\right),
+\label{eq:bas_full}
+\end{equation}
+where $\alpha,\beta \ge 0$ are predefined or cross-validated weights.
+
+\textbf{Reason.} This avoids reducing the audit to mixture weights only.
+
+\subsection*{Major Revision Item 13: Add an identifiability subsection}
+\textbf{Problem.} The empirical results suggest that EMPA bias may remain nearly constant across different $\epsilon$ values. This raises a major identifiability concern.
+
+\textbf{Required revision.}
+Add a subsection formally discussing identifiability. At minimum, the paper should ask:
+
+\begin{quote}
+Under what conditions does
+\[
+\mathrm{BAS}_{\epsilon_1} \neq \mathrm{BAS}_{\epsilon_2}
+\]
+whenever $\epsilon_1 \neq \epsilon_2$?
+\end{quote}
+
+A minimal proposition-style statement would be useful.
+
+\textbf{Suggested mathematical direction.}
+Assume a perturbation family parameterized by variance scale $\sigma^2(\epsilon)$ and a fitted family of mixture parameters $\Theta_\epsilon$. Then discuss conditions under which the map
+\[
+\epsilon \mapsto \Theta_\epsilon
+\]
+is injective, or at least rank-preserving, over the operating range.
+
+Even if a full theorem is not possible, state clearly:
+\begin{itemize}
+    \item when identifiability is expected,
+    \item when it may fail,
+    \item what role partition quality plays.
+\end{itemize}
+
+\subsection*{Major Revision Item 14: Explain why EM is necessary}
+\textbf{Problem.} A reviewer may ask why EM-based parameter analysis is needed at all instead of direct moment matching or simple scale estimation.
+
+\textbf{Required revision.}
+Add a paragraph justifying EM as modeling heterogeneous perturbation structure, for example:
+\[
+\mathbb{P}(\Delta f)
 =
 \sum_{k=1}^{K}
-\lambda_k
-\mathcal{N}\!\left(v;\mu_k,\operatorname{diag}(\sigma_k^2)\right).
+\lambda_k \,
+\mathcal{N}(\Delta f; \mu_k, \Sigma_k),
+\qquad
+\Delta f = \tilde{f} - f.
 \]
-This is a positive step. However, the paper still does not adequately justify \emph{why} this model is the correct or even a plausible representation for the sensitive-feature distribution under perturbation. The choice of $K=4$, diagonal covariance, and the reference comparison on the same feature subset appears ad hoc. The method therefore reads more like a heuristic scoring procedure than a principled estimator.
+Then explain what information is captured by the latent mixture structure that a single-variance model would miss.
 
-Moreover, the paper does not analyze the sensitivity of the discrepancy score to:
-\begin{enumerate}
-\item the number of mixture components $K$;
-\item diagonal versus full covariance;
-\item feature normalization;
-\item pooling into a ``common feature space'';
-\item layer selection and aggregation.
-\end{enumerate}
+\section{Experimental Design}
 
-\textbf{Location.}  
-Section III-G, Table II, Section IV-A.4, Table IV.
+\subsection*{Major Revision Item 15: Redesign the experiments around three questions}
+\textbf{Problem.} The current experiments feel like demonstrations rather than decisive validation.
 
-\textbf{Why this matters technically.}  
-If the proposed assessment score is heavily dependent on arbitrary mixture design choices, then the empirical conclusions may not reflect the privacy-budget alignment problem itself, but instead the inductive bias of the chosen density model.
+\textbf{Required revision.}
+Reorganize the experimental section around the following three explicit research questions:
 
-\textbf{Required fix.}  
-Add a robustness subsection that studies:
-\[
-K \in \{2,4,8\},
-\]
-and compares at least:
-\[
-\Sigma_k = \operatorname{diag}(\sigma_k^2)
-\quad \text{vs.} \quad
-\Sigma_k \text{ full}.
-\]
-Also show whether the score changes materially under:
-\[
-d(\Theta_\epsilon,\Theta_\epsilon^{\mathrm{ref}})
-=
-\left\|
-\phi(\Theta_\epsilon)-\phi(\Theta_\epsilon^{\mathrm{ref}})
-\right\|_2
-\]
-with
-\[
-\phi(\Theta)
-=
-[\lambda_1,\dots,\lambda_K,\mu_1,\dots,\mu_K,\sigma_1^2,\dots,\sigma_K^2]
-\]
-versus a weight-only version.
-
-A concrete patch would be:
-
-\begin{verbatim}
-\paragraph*{EMPA robustness to mixture design.}
-We evaluate the stability of EMPA under different mixture
-specifications by varying the number of components
-$K\in\{2,4,8\}$ and the covariance model
-(diagonal vs.\ full covariance). We additionally compare
-three discrepancy variants:
-\[
-d_\lambda,\quad d_{\lambda,\mu},\quad d_{\lambda,\mu,\sigma^2},
-\]
-where each variant uses only the corresponding subset of
-mixture parameters. This analysis determines whether the
-reported budget-alignment trends are robust to modeling choices.
-\end{verbatim}
-
-\subsection*{3. The synthetic experiment currently exposes a fundamental weakness of the method and is not adequately resolved}
-
-\textbf{Problem.}  
-Section IV-B.4 is the most revealing part of the paper, but also the most damaging in its current form. The paper states that on synthetic hierarchical data, the EMPA bias remains almost constant across different privacy budgets:
-\[
-\mathrm{Bias}_\epsilon \approx 0.894
-\quad \text{for both} \quad
-\epsilon=0.1 \text{ and } \epsilon=0.01.
-\]
-This is a major issue. If the method is intended to assess budget alignment, then a core output that is almost invariant to substantial perturbation changes is not serving that role effectively.
-
-The paper correctly notes that the bias may reflect \emph{group structure} more than perturbation scale. However, this is not a side remark; it is a central challenge to the method's validity.
-
-\textbf{Location.}  
-Section IV-B.4, Table IV, Figure 7, Section IV-E(7).
-
-\textbf{Why this matters technically.}  
-A valid budget-alignment assessment quantity should show at least some monotonic sensitivity to perturbation strength under a controlled setup where grouping is fixed and only noise scale changes.
-
-At minimum, one expects
-\[
-\epsilon_1 < \epsilon_2
-\quad \Longrightarrow \quad
-\mathbb{E}[\mathrm{BAS}_{\epsilon_1}]
-\neq
-\mathbb{E}[\mathrm{BAS}_{\epsilon_2}]
-\]
-under the chosen perturbation family. If the score instead satisfies approximately
-\[
-\mathrm{Bias}_{0.1} \approx \mathrm{Bias}_{0.01},
-\]
-then either the chosen statistic is poorly calibrated, or the grouping mechanism dominates the assessment.
-
-\textbf{Required fix.}  
-The authors must perform a controlled decomposition study. Specifically:
-
-\begin{enumerate}
-\item Fix the grouping and vary only the perturbation scale;
-\item Fix the perturbation scale and vary only the grouping structure;
-\item Report both $\mathrm{Bias}_\epsilon$ and full $\mathrm{BAS}_\epsilon$;
-\item Determine whether the method is primarily a \emph{structure auditor} or a \emph{budget auditor}.
-\end{enumerate}
-
-Suggested TeX patch:
-
-\begin{verbatim}
-\paragraph*{Decomposition of structure and perturbation effects.}
-To isolate the source of the EMPA discrepancy, we perform two
-controlled studies. In the first, the sensitive/non-sensitive
-partition is fixed and only the perturbation magnitude changes.
-In the second, the perturbation family is fixed and only the
-partition changes. Let
-\[
-\mathrm{BAS}_\epsilon^{\mathrm{fixed\mbox{-}group}}
-\quad\text{and}\quad
-\mathrm{BAS}^{\mathrm{fixed\mbox{-}noise}}(G)
-\]
-denote these two regimes. This decomposition clarifies whether
-EMPA is primarily sensitive to perturbation scale or to induced
-group structure.
-\end{verbatim}
-
-\subsection*{4. The baseline design remains weak and does not support strong performance claims}
-
-\textbf{Problem.}  
-The main quantitative baselines are Chi-square, K-L divergence, and MMD. These are generic discrepancy metrics, not budget-alignment methods. The manuscript explicitly acknowledges this in Section IV-A.3, which is honest, but it also means that the current results do not support any strong claim that Bodhi VLM is superior for the intended task.
-
-The comparison against ViP, DP-Cap, DP-MTV, and VisShield in Table VI is also not technically meaningful as evidence of superiority, because these methods solve different problems:
 \begin{itemize}
-\item training-time DP representation learning,
-\item multimodal DP task adaptation,
-\item de-identification.
+    \item \textbf{RQ1: Identifiability.} Does the proposed score change reliably with perturbation magnitude and mechanism mismatch?
+    \item \textbf{RQ2: Partition validity.} Do BUA/TDA identify privacy-relevant feature subsets more accurately than simpler alternatives?
+    \item \textbf{RQ3: Practical value.} Does the audit score correlate with actual privacy or utility outcomes?
 \end{itemize}
-They are not post hoc budget-auditing methods.
 
-\textbf{Location.}  
-Section II-D, Section IV-A.3, Table VI, Table VII, Section V.
+This change alone will make the paper look much more like a top-tier journal submission.
 
-\textbf{Why this matters technically.}  
-A TNNLS paper introducing a new assessment method should be evaluated against at least one \emph{task-matched comparator}. Otherwise, the empirical section demonstrates only that the proposed method differs from generic distances, not that it is the right tool for the stated problem.
+\subsection*{Major Revision Item 16: Add budget-sensitivity experiments}
+\textbf{Problem.} The current results do not convincingly show that EMPA tracks budget changes.
 
-\textbf{Required fix.}  
-Add at least two task-relevant baselines:
-\begin{enumerate}
-\item a regression-based budget predictor from feature statistics,
-\item a likelihood-based score under the known perturbation family.
-\end{enumerate}
-
-For example, define a feature-summary vector
+\textbf{Required revision.}
+Add controlled experiments with fixed partition and varying perturbation scale:
 \[
-z = \psi(\tilde f, f, G^{(s)}, G^{(n)}),
+\epsilon \in \{ \epsilon_1, \epsilon_2, \ldots, \epsilon_m \},
+\qquad
+\epsilon_1 < \epsilon_2 < \cdots < \epsilon_m.
 \]
-and fit a regressor
+Then report whether
 \[
-\hat \epsilon = r_\theta(z).
+\mathrm{BAS}_{\epsilon_1}, \mathrm{BAS}_{\epsilon_2}, \ldots, \mathrm{BAS}_{\epsilon_m}
 \]
-Then use
+exhibit monotonicity, ordinal consistency, or at least statistically significant separation.
+
+Useful summary metrics include:
+\begin{align}
+\rho_{\mathrm{Spearman}}
+&=
+\mathrm{corr}_{\mathrm{rank}}
+\bigl(
+\epsilon^{-1},
+\mathrm{BAS}_\epsilon
+\bigr), \\
+\tau_{\mathrm{Kendall}}
+&=
+\mathrm{Kendall}
+\bigl(
+\epsilon^{-1},
+\mathrm{BAS}_\epsilon
+\bigr).
+\end{align}
+
+\subsection*{Major Revision Item 17: Add mechanism-mismatch experiments}
+\textbf{Problem.} The paper currently does not show that the method distinguishes one perturbation family from another.
+
+\textbf{Required revision.}
+Add experiments of the form:
 \[
-\mathrm{Err}_\epsilon = |\hat \epsilon - \epsilon|
+T_{\mathrm{obs}} \neq T_{\mathrm{ref},\epsilon},
 \]
-or
+for example:
+\begin{itemize}
+    \item observed Gaussian vs.\ reference Laplace,
+    \item observed Laplace vs.\ reference Gaussian,
+    \item observed strong perturbation vs.\ reference weak perturbation.
+\end{itemize}
+
+Then evaluate whether the audit score detects mismatch:
 \[
-\mathrm{rMSE}_\epsilon
+\mathrm{BAS}\bigl(T_{\mathrm{obs}},T_{\mathrm{ref}}\bigr)
+>
+\mathrm{BAS}\bigl(T_{\mathrm{obs}},T_{\mathrm{obs}}\bigr).
+\]
+
+\subsection*{Major Revision Item 18: Add partition-ablation experiments}
+\textbf{Problem.} It is unclear whether performance comes from BUA/TDA or simply from any nontrivial partition.
+
+\textbf{Required revision.}
+Compare against:
+\begin{itemize}
+    \item random partition,
+    \item top-$k$ sensitivity thresholding,
+    \item $k$-means on features,
+    \item agglomerative clustering,
+    \item saliency/attention-rollout-guided partitioning.
+\end{itemize}
+
+Then quantify partition validity using overlap metrics when a sensitive-region reference is available:
+\begin{align}
+\mathrm{IoU}
+&=
+\frac{|P \cap G|}{|P \cup G|}, \\
+\mathrm{Dice}
+&=
+\frac{2|P \cap G|}{|P| + |G|},
+\end{align}
+where $P$ is the predicted sensitive subset and $G$ is the reference subset.
+
+\subsection*{Major Revision Item 19: Add threshold-sensitivity analysis}
+\textbf{Problem.} The method appears to depend strongly on quantile thresholds and grouping choices.
+
+\textbf{Required revision.}
+Run sensitivity analysis over
+\[
+\tau \in \{0.80, 0.85, 0.90, 0.95\}
+\]
+or the actual set used in the implementation, and show how audit outputs vary.
+
+\subsection*{Major Revision Item 20: Add true task-relevant baselines}
+\textbf{Problem.} Current baselines are mostly generic discrepancy measures.
+
+\textbf{Required revision.}
+Add at least the following baselines.
+
+\paragraph{(a) Direct perturbation-scale estimation.}
+Assume
+\[
+\Delta f = \tilde{f} - f \sim \mathcal{N}(0,\sigma^2 I)
+\]
+or another reference family, estimate $\hat{\sigma}$ by maximum likelihood, then map to declared budget under the assumed calibration rule.
+
+A simple Gaussian MLE is:
+\[
+\hat{\sigma}^2
 =
-\sqrt{
-\frac{1}{M}
-\sum_{m=1}^{M}
-(\hat\epsilon_m-\epsilon_m)^2
-}.
+\frac{1}{nd}
+\sum_{j=1}^{n}
+\|\Delta f_j\|_2^2.
 \]
 
-A second baseline is a perturbation-family likelihood score:
+\paragraph{(b) Moment-regression baseline.}
+Construct summary statistics
 \[
-\mathcal{L}_\epsilon
-=
-\sum_{j=1}^{N_s}
-\log p(\tilde v_j - v_j \mid \epsilon).
+z =
+\bigl[
+\mathrm{mean}(\Delta f),
+\mathrm{var}(\Delta f),
+\mathrm{kurt}(\Delta f),
+\mathrm{gap}_{\mathrm{sens,non\mbox{-}sens}}
+\bigr]
 \]
+and regress to budget or budget-alignment classes.
 
-Suggested patch:
+\paragraph{(c) Two-sample classifier baseline.}
+Train a classifier to distinguish observed perturbed features from reference perturbed features and use held-out AUC as a discrepancy proxy.
 
-\begin{verbatim}
-\paragraph*{Task-specific budget-alignment baselines.}
-Beyond generic discrepancy measures, we introduce two
-task-matched baselines. First, \emph{MomentReg} predicts the
-declared budget $\epsilon$ from feature summary statistics
-using a regression model
-\[
-\hat\epsilon = r_\theta(\psi(\tilde f,f,G^{(s)},G^{(n)})).
-\]
-Second, \emph{NoiseMLE} evaluates the log-likelihood of the
-observed perturbation under the evaluator-specified additive
-noise family:
-\[
-\mathcal{L}_\epsilon
-=
-\sum_{j=1}^{N_s}\log p(\tilde v_j-v_j\mid\epsilon).
-\]
-These baselines provide task-specific references for budget
-alignment beyond generic distribution distances.
-\end{verbatim}
-
-\subsection*{5. The statistical protocol is still below the bar for TNNLS}
-
-\textbf{Problem.}  
-Section IV-A.4(a) explicitly states that, unless otherwise specified, values are from a single run and that mean$\pm$std or confidence intervals are not generally reported. This is a major methodological weakness. The paper involves stochastic perturbations, clustering, mixture fitting, and subset selection. Single-run reporting is not sufficient.
-
-This concern is especially serious because some reported differences are small. For example, in Table V the BUA and TDA rMSE values for VLMs are very close:
-\[
-1.89 \text{ vs. } 1.92,\qquad
-2.11 \text{ vs. } 2.08,\qquad
-2.35 \text{ vs. } 2.41.
-\]
-Without uncertainty estimates, none of these differences are interpretable.
-
-\textbf{Location.}  
-Section IV-A.4(a), Table III, Table V, Table VII, Figures 3--8.
-
-\textbf{Required fix.}  
-Every major result table and plot should be based on repeated runs:
-\[
-\text{seeds} \in \{0,1,2,3,4\}
-\]
-at minimum. Report
-\[
-\mu \pm \sigma
-\]
-and where feasible, $95\%$ confidence intervals:
-\[
-\mu \pm 1.96 \frac{\sigma}{\sqrt{n}}.
-\]
-For small-sample evaluation, use bootstrap intervals.
-
-Suggested patch:
-
-\begin{verbatim}
-\paragraph*{Statistical reporting protocol.}
-All experiments are repeated over five random seeds
-$\{0,1,2,3,4\}$, covering perturbation sampling, MDAV grouping,
-subset selection, and EMPA initialization. We report
-mean $\pm$ standard deviation in all tables and
-95\% confidence intervals for the primary comparison plots.
-Where pairwise method differences are discussed, we additionally
-report the confidence interval of the matched-sample difference.
-\end{verbatim}
-
-\subsection*{6. The VLM experimental claim remains broader than the evidence}
-
-\textbf{Problem.}  
-The paper correctly states that it evaluates only the \emph{vision towers} of CLIP, LLaVA, and BLIP. However, the title, some parts of the abstract, and some conclusion language still suggest broader applicability to \emph{vision-language models} rather than to \emph{VLM visual encoders}. That distinction matters.
-
-The paper does not evaluate:
-\begin{enumerate}
-\item cross-modal fusion,
-\item image-text alignment behavior under privacy noise,
-\item language decoding,
-\item prompt-conditioned downstream sensitivity.
-\end{enumerate}
-
-Therefore, the current evidence supports transfer across \emph{visual backbones used inside VLMs}, not across full VLM systems.
-
-\textbf{Location.}  
-Title, Abstract, Section III-H, Table V, Table VI, Conclusion.
-
-\textbf{Required fix.}  
-Tighten the wording throughout so that the paper consistently states \emph{VLM vision encoders} or \emph{vision towers}. Also add at least one experiment probing cross-modal consistency if the authors wish to keep strong VLM language.
-
-A minimal useful experiment would compute image-text similarity shifts in CLIP under perturbation:
-\[
-\Delta_{\mathrm{IT}}
-=
-\left|
-\operatorname{sim}(g_I(\tilde x), g_T(t))
+\paragraph{(d) Wasserstein / energy distance baseline.}
+Include one or more stronger discrepancy baselines:
+\begin{align}
+W_1(P,Q)
+&=
+\inf_{\gamma \in \Gamma(P,Q)}
+\int \|x-y\| \, d\gamma(x,y), \\
+\mathcal{E}(P,Q)
+&=
+2\mathbb{E}\|X-Y\|
 -
-\operatorname{sim}(g_I(x), g_T(t))
-\right|.
-\]
-This would at least connect the feature-level noise to a multimodal quantity.
+\mathbb{E}\|X-X'\|
+-
+\mathbb{E}\|Y-Y'\|.
+\end{align}
 
-\subsection*{7. The notation and algorithmic semantics are still not fully clean}
+\section{Statistical Rigor}
 
-\textbf{Problem.}  
-The paper is improved, but several notation issues remain:
+\subsection*{Major Revision Item 21: Convert all main results to multi-seed reporting}
+\textbf{Problem.} Many key results appear to rely on one run or very limited repetitions.
 
-\begin{enumerate}
-\item $S_\epsilon$ still carries a misleading subscript $\epsilon$ despite being defined as a task-level sensitive concept set not learned from $\epsilon$.
-\item Equation (5) uses set intersection across consecutive layers:
+\textbf{Why this matters.} With stochastic perturbation, grouping, and EM fitting, single-run results are not sufficient for a top-tier journal.
+
+\textbf{Required revision.}
+For every main table and figure, report:
 \[
-L_i^{(s)} = G_i^{(s)} \cap G_{i-1}^{(s)},
-\qquad
-L_i^{(n)} = G_i^{(n)} \cap G_{i-1}^{(n)},
+\text{mean} \pm \text{standard deviation}
 \]
-but these groups live in different feature spaces unless a mapping is applied first.
-\item Table I still includes $\Psi_i$ and $g_i$, which are not actually used in the final EMPA formulation.
-\item The distinction between per-layer feature tensors, flattened vectors, pooled features, and common-space features is not explicit enough.
+over at least $N$ seeds, where $N$ is explicitly stated.
+
+Also add $95\%$ confidence intervals:
+\[
+\bar{x} \pm 1.96 \frac{s}{\sqrt{N}}.
+\]
+
+\subsection*{Major Revision Item 22: Add significance testing for key comparisons}
+\textbf{Required revision.}
+For paired results, report statistical significance using an appropriate test, for example:
+\begin{itemize}
+    \item paired $t$-test if justified,
+    \item Wilcoxon signed-rank test otherwise.
+\end{itemize}
+
+If comparing multiple methods across datasets, add a correction procedure such as Holm--Bonferroni.
+
+\section{Results Interpretation}
+
+\subsection*{Major Revision Item 23: Address the near-constant EMPA outputs directly}
+\textbf{Problem.} If EMPA or its bias term is nearly unchanged across budgets, this must be treated as a central methodological issue, not a minor observation.
+
+\textbf{Required revision.}
+Add a dedicated discussion subsection titled something like:
+\[
+\text{``When EMPA reflects partition structure more strongly than perturbation magnitude.''}
+\]
+
+In that subsection:
+\begin{itemize}
+    \item acknowledge the phenomenon explicitly,
+    \item explain whether it is due to the use of weight-only bias,
+    \item test whether mean and covariance terms recover sensitivity,
+    \item state whether the current score should be interpreted as a \emph{hybrid structural-discrepancy metric} rather than a pure budget signal.
+\end{itemize}
+
+\subsection*{Major Revision Item 24: Add audit-value correlation experiments}
+\textbf{Problem.} The practical meaning of the audit score is still unclear.
+
+\textbf{Required revision.}
+Show correlation between audit output and actual privacy or utility outcomes, for example:
+\begin{align}
+\rho_1
+&=
+\mathrm{corr}
+\bigl(
+\mathrm{BAS}_\epsilon,
+\mathrm{MIA\mbox{-}AUC}
+\bigr), \\
+\rho_2
+&=
+\mathrm{corr}
+\bigl(
+\mathrm{BAS}_\epsilon,
+\mathrm{ReID\ Leakage}
+\bigr), \\
+\rho_3
+&=
+\mathrm{corr}
+\bigl(
+\mathrm{BAS}_\epsilon,
+\Delta \mathrm{AP}
+\bigr).
+\end{align}
+
+Even if these are only empirical proxies, they are much stronger than reporting feature-space discrepancies alone.
+
+\section{VLM-Specific Section}
+
+\subsection*{Major Revision Item 25: Reframe the VLM experiments as vision-tower auditing}
+\textbf{Problem.} The current wording overstates the scope.
+
+\textbf{Required revision.}
+Throughout the VLM section, replace broad phrases such as ``auditing VLM privacy budgets'' with
+\[
+\text{auditing the visual encoder representations of VLMs}.
+\]
+
+Also add a formal scope statement:
+\[
+\text{Current study scope} = \text{vision tower only},
+\qquad
+\text{not full autoregressive multimodal generation}.
+\]
+
+\subsection*{Major Revision Item 26: Clarify that cross-method tables are scope comparisons, not head-to-head performance comparisons}
+\textbf{Problem.} Comparing Bodhi against methods with different goals may be misleading.
+
+\textbf{Required revision.}
+Rename such tables using wording like:
+\[
+\text{``Scope and capability comparison with related privacy-aware vision/VLM methods.''}
+\]
+Do not present these as direct quantitative SOTA comparisons.
+
+\section{Figures and Tables}
+
+\subsection*{Major Revision Item 27: Redraw the main figures for readability}
+\textbf{Problem.} The main pipeline figures appear overloaded.
+
+\textbf{Required revision.}
+Split the visual material into:
+\begin{enumerate}
+    \item one high-level framework overview,
+    \item one BUA/TDA details figure,
+    \item one EMPA fitting and discrepancy figure.
 \end{enumerate}
 
-\textbf{Location.}  
-Table I, Section III-B, Section III-F, Algorithm 1, Algorithm 2, Eq. (5), Section III-H.
+\subsection*{Major Revision Item 28: Improve table interpretability}
+\textbf{Required revision.}
+For each quantitative table:
+\begin{itemize}
+    \item state the number of seeds,
+    \item state whether lower or higher is better,
+    \item explain normalization or scaling,
+    \item highlight statistically significant best values only if significance is actually tested.
+\end{itemize}
 
-\textbf{Required fix.}  
-First, rename
-\[
-S_\epsilon \to S
-\]
-throughout unless there is an actual budget-dependent concept set.
+\section{Discussion and Limitations}
 
-Second, make the inter-layer mapping explicit:
+\subsection*{Major Revision Item 29: Expand the limitations section substantially}
+\textbf{Problem.} The current limitations are present but not deep enough for a top-tier journal.
+
+\textbf{Required revision.}
+Add a structured limitations subsection including at least:
+
+\paragraph{(a) Reference-model dependence.}
+The audit depends on the evaluator-specified perturbation family:
 \[
-\Pi_{i \to i-1} : X_i \to X_{i-1},
+\mathcal{M}_{\mathrm{ref}}.
 \]
-and then redefine
-\[
-L_i^{(s)}
+A mismatch between actual and reference mechanisms can alter the interpretation of the score.
+
+\paragraph{(b) Partition dependence.}
+Audit quality depends on the quality of sensitive/non-sensitive grouping.
+
+\paragraph{(c) Identifiability limits.}
+Different perturbation settings may induce similar fitted mixture parameters.
+
+\paragraph{(d) Scope limit for VLMs.}
+Only the visual encoder is audited in the current work.
+
+\paragraph{(e) No formal privacy guarantee.}
+The framework is empirical and does not certify $(\epsilon,\delta)$-DP or equivalent formal notions.
+
+\section{Conclusion}
+
+\subsection*{Major Revision Item 30: Rewrite the conclusion to be precise and modest}
+\textbf{Problem.} The conclusion should not restate broad claims that the body of the paper does not fully prove.
+
+\textbf{Required revision.}
+Conclude with a statement such as:
+\begin{quote}
+This work introduces an empirical feature-level auditing framework for assessing alignment between observed feature perturbations and evaluator-specified reference perturbation settings in vision backbones and VLM vision encoders.
+\end{quote}
+
+Then explicitly state the next steps:
+\begin{itemize}
+    \item stronger identifiability analysis,
+    \item formal connection to privacy leakage,
+    \item extension to full multimodal pipelines,
+    \item calibration across heterogeneous perturbation families.
+\end{itemize}
+
+\section{New Equations and Definitions That Should Be Added}
+
+\subsection*{1. Formal audit definition}
+\begin{equation}
+\mathcal{A}_{\text{audit}}
 =
-\Pi_{i \to i-1}(G_i^{(s)}) \cap G_{i-1}^{(s)}.
-\]
+\mathcal{A}\!\left(
+\tilde{f}, f, S_{\mathrm{sens}}, \epsilon ; \mathcal{M}_{\mathrm{ref}}, \Pi, \phi
+\right).
+\end{equation}
 
-Suggested patch:
+\subsection*{2. Reference-conditioned discrepancy target}
+\begin{equation}
+D_\epsilon
+=
+D\!\left(
+\mathbb{P}(\tilde{f}\mid f,S_{\mathrm{sens}}),
+\mathbb{P}(\tilde{f}^{\,\mathrm{ref}}_{\epsilon}\mid f,S_{\mathrm{sens}})
+\right).
+\end{equation}
 
-\begin{verbatim}
-\paragraph*{Cross-layer links in TDA.}
-Because $G_i^{(s)}$ and $G_{i-1}^{(s)}$ generally lie in different
-feature spaces, we first map higher-layer elements to the lower
-layer via a correspondence operator
-\[
-\Pi_{i\to i-1}: X_i \rightarrow X_{i-1}.
-\]
-We then define
-\[
-L_i^{(s)} := \Pi_{i\to i-1}(G_i^{(s)}) \cap G_{i-1}^{(s)},
+\subsection*{3. Mixture-model representation of perturbation}
+\begin{equation}
+\mathbb{P}(\Delta f)
+=
+\sum_{k=1}^{K}
+\lambda_k \,
+\mathcal{N}(\Delta f; \mu_k, \Sigma_k),
 \qquad
-L_i^{(n)} := \Pi_{i\to i-1}(G_i^{(n)}) \cap G_{i-1}^{(n)}.
-\]
-\end{verbatim}
+\Delta f = \tilde{f} - f.
+\end{equation}
 
-Also remove unused notation from Table I.
+\subsection*{4. Full EMPA/BAS score}
+\begin{equation}
+\mathrm{BAS}_{\epsilon}
+=
+d_{\lambda}\!\left(
+\lambda^{\mathrm{obs}}_{\epsilon},
+\lambda^{\mathrm{ref}}_{\epsilon}
+\right)
++
+\alpha \,
+d_{\mu}\!\left(
+\mu^{\mathrm{obs}}_{\epsilon},
+\mu^{\mathrm{ref}}_{\epsilon}
+\right)
++
+\beta \,
+d_{\Sigma}\!\left(
+\Sigma^{\mathrm{obs}}_{\epsilon},
+\Sigma^{\mathrm{ref}}_{\epsilon}
+\right).
+\end{equation}
 
-\subsection*{8. The experimental protocol contains dataset and reporting inconsistencies}
+\subsection*{5. Rank-consistency metric for budget sensitivity}
+\begin{equation}
+\rho_{\mathrm{budget}}
+=
+\mathrm{corr}_{\mathrm{rank}}
+\bigl(
+\epsilon^{-1},
+\mathrm{BAS}_{\epsilon}
+\bigr).
+\end{equation}
 
-\textbf{Problem.}  
-There are several concrete experimental clarity problems:
+\subsection*{6. Correlation to downstream privacy/utility proxies}
+\begin{equation}
+\rho_{\mathrm{proxy}}
+=
+\mathrm{corr}
+\bigl(
+\mathrm{BAS}_{\epsilon},
+\mathcal{R}_{\mathrm{privacy/utility}}
+\bigr).
+\end{equation}
 
+\section{Priority Order for Revision}
+
+\subsection*{Tier 1: Must fix before resubmission}
 \begin{enumerate}
-\item ``COCO (Train2020/Val2020)'' is likely incorrect nomenclature; standard MS COCO splits are typically \texttt{train2017}/\texttt{val2017} or earlier versions.
-\item ``MOT20 (150 frames)'' is not enough detail. Which sequences? Uniformly sampled or consecutive? Which split?
-\item The perturbation model is described as scale proportional to $1/\epsilon$, but the exact calibration is not given:
-\[
-b = c/\epsilon \quad ?
-\qquad
-\sigma = c/\epsilon \quad ?
-\]
-with what constant $c$?
-\item In Table II, the statement ``single-run scalar values'' conflicts with tables elsewhere that report mean$\pm$std over seeds.
-\item Table III and Table VII report many values as
-\[
-0.00 \pm 0.00,
-\]
-which is suspicious without precision disclosure.
+    \item Narrow the central claim across title, abstract, introduction, and conclusion.
+    \item Formally define what is being audited.
+    \item Add identifiability experiments for EMPA.
+    \item Add task-relevant baselines.
+    \item Add multi-seed statistics and significance testing.
 \end{enumerate}
 
-\textbf{Location.}  
-Section IV-A.1, Section IV-A.4, Table II, Table III, Table VII.
-
-\textbf{Required fix.}  
-Provide exact split names, sample counts, sequence IDs, sampling rules, perturbation calibration formula, numeric precision, and reconcile the single-run versus multi-seed reporting inconsistency.
-
-A simple patch for perturbation calibration is:
-
-\begin{verbatim}
-\paragraph*{Perturbation calibration used in controlled experiments.}
-For Laplace perturbation, we use
-\[
-u \sim \operatorname{Laplace}(0,b), \qquad b = c/\epsilon,
-\]
-and for Gaussian perturbation,
-\[
-u \sim \mathcal{N}(0,\sigma^2 I), \qquad \sigma = c/\epsilon,
-\]
-where $c$ is a fixed constant shared across all methods in a given
-experiment. This controlled setup is used only to generate a
-reference perturbation family for empirical auditing and is not
-claimed as a formal DP calibration.
-\end{verbatim}
-
-\subsection*{9. The interpretation of ``competitive or lower rMSE'' is not convincing as currently written}
-
-\textbf{Problem.}  
-In multiple places, the paper states that EMPA achieves \emph{competitive or lower} budget-alignment error than Chi-square, K-L divergence, and MMD. However, the actual numbers do not consistently support a strong narrative.
-
-For example, in Table III:
-\begin{itemize}
-\item Chi-square rMSE is approximately $0.35$--$0.36$,
-\item EMPA is $0.89$ on several models,
-\item MMD is $0.00$--$0.00$.
-\end{itemize}
-Even if MMD is not a task-specific baseline, such results make the claim difficult to read at face value.
-
-This suggests either:
+\subsection*{Tier 2: Strongly recommended}
 \begin{enumerate}
-\item the metrics are not directly comparable,
-\item the reported targets are different,
-\item or the claim wording is too strong.
+    \item Validate BUA/TDA partition quality explicitly.
+    \item Add mechanism-mismatch experiments.
+    \item Add correlation analysis with actual privacy/utility proxies.
+    \item Reframe VLM evaluation as vision-tower auditing only.
 \end{enumerate}
 
-\textbf{Location.}  
-Abstract, Section IV-B.3, Section V, Table III, Table VII.
-
-\textbf{Required fix.}  
-Either normalize all metrics to the same target and scale, or soften the claims substantially. For instance, replace ``competitive or lower'' with language such as:
-
-\begin{verbatim}
-EMPA provides a stable feature-level discrepancy signal under the
-reported setups; however, its numerical values are not directly
-comparable to generic distribution distances without a shared
-normalization target.
-\end{verbatim}
-
-\subsection*{10. The ablation study is too weak for a paper of this scope}
-
-\textbf{Problem.}  
-The ablation in Table VIII includes only:
-\begin{itemize}
-\item w/o BUA,
-\item w/o TDA,
-\item w/o EMPA.
-\end{itemize}
-This is not enough. Since the method depends on NCP, MDAV, thresholding, mixture modeling, and grouping rules, the ablation should test the sensitivity of each core design choice.
-
-\textbf{Location.}  
-Section IV-C, Table VIII.
-
-\textbf{Required fix.}  
-At minimum, add:
+\subsection*{Tier 3: Presentation improvements}
 \begin{enumerate}
-\item w/o MDAV,
-\item w/o NCP,
-\item threshold percentile variation
-\[
-\tau_i \in \{80\%, 90\%, 95\%\},
-\]
-\item mixture component variation
-\[
-K \in \{2,4,8\},
-\]
-\item random grouping versus structured grouping on real data, not only synthetic data.
+    \item Redraw figures.
+    \item Simplify notation.
+    \item Reorganize related work by task.
+    \item Rename cross-method tables as scope comparisons.
 \end{enumerate}
 
-\section*{Minor Comments}
+\section*{Bottom-Line Editorial Assessment}
 
-\begin{enumerate}
-\item The acronym expansion of Bodhi VLM in the abstract is somewhat forced and does not fully match the actual method content.
-\item The phrase ``links sensitive data labels to privacy budgets via clustering'' in the abstract is still vague and potentially misleading.
-\item The paper should explicitly define the feature pooling rule when sensitive vectors from multiple layers are aggregated into
-\[
-V^{(s)} = \{v_j\}_{j=1}^{N_s}.
-\]
-\item Table II should not state vague hardware like ``RTX/A100 class''; list exact GPU model(s).
-\item The references contain several recent arXiv citations that should be checked for precise versions and correctness.
-\item The BLIP omission in Table VII should be explained more carefully; a missing model weakens the completeness of the VLM section.
-\item PSNR and SIFT remain weakly motivated for this problem and may distract from the main technical story.
-\item The paper should clearly mark when results are on synthetic data versus real detector/VLM features, because this distinction is easy to lose in the current narrative.
-\item Figure captions should be much more self-contained. Each caption should include dataset, sample size, perturbation family, declared $\epsilon$, aggregation rule, and whether lower is better.
-\item Several reported results appear over-precise relative to the limited statistical analysis.
-\end{enumerate}
-
-\section*{Explicit Audit Against Common TNNLS Failure Points}
-
-\subsection*{Claim--Evidence Alignment}
-\textbf{Assessment: improved but still imperfect.}  
-The manuscript is substantially better because it now limits itself to feature-level auditing under controlled perturbations. However, some remaining wording still implies stronger VLM-level generality than the evidence supports.
-
-\subsection*{Notation Hygiene}
-\textbf{Assessment: moderate, but still needs work.}  
-The notation is more coherent than before, but not yet clean enough for effortless verification. In particular, $S_\epsilon$, Eq.~(5), and unused Table I symbols need revision.
-
-\subsection*{Algorithm Reproducibility}
-\textbf{Assessment: partial.}  
-Algorithms 1 and 2 are readable, but still not fully executable without consulting multiple later sections. A reproducible paper should specify exact data objects, mapping operators, and aggregation rules in one place.
-
-\subsection*{Mathematical Defensibility}
-\textbf{Assessment: moderate at best.}  
-The paper correctly avoids formal theorems it cannot prove. However, EMPA remains more heuristic than principled. This is acceptable only if the manuscript fully embraces its empirical nature and provides stronger robustness evidence.
-
-\subsection*{Metric Definition Clarity}
-\textbf{Assessment: insufficient.}  
-The current manuscript still mixes deviation, rMSE, BAS, and Bias without a single unifying metric paragraph.
-
-\subsection*{Baseline Adequacy}
-\textbf{Assessment: weak.}  
-This is still one of the biggest problems.
-
-\subsection*{Statistical Robustness}
-\textbf{Assessment: inadequate.}  
-This remains a must-fix issue.
-
-\subsection*{Sensitivity-Set Definition}
-\textbf{Assessment: better, but still somewhat subjective.}  
-The paper now defines sensitive concept sets per dataset, which is good. However, a transferability or sensitivity analysis over the choice of $S$ is still missing.
-
-\subsection*{Controlled Perturbation vs. Real Mechanisms}
-\textbf{Assessment: appropriately acknowledged.}  
-The limitation is now stated clearly in the manuscript. This is a strength. The remaining need is to make sure no later claim contradicts it.
-
-\subsection*{Reproducibility Details}
-\textbf{Assessment: partial.}  
-The paper is improved, but still not at the level where an external reader could reproduce all experiments with no ambiguity.
-
-\subsection*{Figure/Table Self-Contained Captions}
-\textbf{Assessment: insufficient.}  
-Captions are still too light for a TNNLS paper.
-
-\section*{Minimum Bar for Acceptance}
-
-\begin{enumerate}
-\item Clearly define the \textbf{primary target of estimation} and distinguish it from secondary diagnostics.
-\item Resolve the \textbf{synthetic-study failure mode} showing that EMPA bias is insensitive to $\epsilon$.
-\item Add \textbf{task-matched baselines} beyond Chi-square, K-L, and MMD.
-\item Redo the main experiments with \textbf{multi-seed statistical reporting}.
-\item Tighten the paper to consistently claim transfer only to \textbf{VLM vision encoders}, unless multimodal experiments are added.
-\item Fix the \textbf{cross-layer mapping semantics} in TDA and clean the notation.
-\item Expand the \textbf{ablation study} to cover MDAV, NCP, thresholding, and mixture-model design.
-\item Resolve the \textbf{dataset/protocol inconsistencies} and improve the captions/tables substantially.
-\end{enumerate}
-
-\section*{Optional Enhancements}
-
-\begin{enumerate}
-\item Add a cross-modal CLIP image--text consistency experiment.
-\item Add calibration curves showing how $\mathrm{BAS}_\epsilon$ changes under fixed grouping.
-\item Analyze runtime and memory overhead of BUA/TDA/EMPA.
-\item Include a transferability study across different sensitive concept sets $S$.
-\item Compare alternative density models beyond Gaussian mixtures.
-\end{enumerate}
-
-\section*{Final Verdict}
-
-This paper has a plausible and potentially useful idea, and it has clearly improved in scope control and honesty about limitations. However, for \emph{IEEE TNNLS}, the current version still falls short in methodological rigor, baseline strength, and statistical validation. I would encourage the authors to continue this work, but the manuscript needs a substantial revision before it can meet the standard of a top-tier journal.
+In its current form, the paper presents an interesting and potentially useful auditing framework, but it does not yet meet top-tier journal standards because the main claim is broader than the evidence, the central EMPA quantity is not yet shown to be sufficiently identifiable, the experimental baselines are too weak, and the practical meaning of the audit score remains under-validated. The revision should therefore focus first on \textbf{problem-definition precision}, then on \textbf{identifiability and baseline strength}, and finally on \textbf{practical validation and statistical rigor}.

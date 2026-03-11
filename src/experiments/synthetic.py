@@ -2,7 +2,15 @@
 """Synthetic BUA/TDA + EMPA experiments: generate bodhi_vlm_metrics.csv and figures."""
 import os
 import numpy as np
-from utils.metrics import compare_metrics, empa_bias_and_weights, histogram_from_samples, rmse
+from utils.metrics import (
+    compare_metrics,
+    empa_bias_and_weights,
+    histogram_from_samples,
+    rmse,
+    moment_features,
+    moment_reg_rmse,
+    noise_mle_rmse_with_true,
+)
 from utils.grouping import bua_style, tda_style
 
 
@@ -40,7 +48,7 @@ def add_privacy_noise(
     return noised
 
 
-def _empa_bias_random_partition(layers_noised, n_sensitive_per_layer, seed: int):
+def _empa_bias_random_partition(layers_noised, n_sensitive_per_layer, seed: int, n_components: int = 5):
     """EMPA bias when using a random partition (same sensitive count per layer) as baseline."""
     rng = np.random.default_rng(seed)
     sens_list, nons_list = [], []
@@ -57,11 +65,19 @@ def _empa_bias_random_partition(layers_noised, n_sensitive_per_layer, seed: int)
         sens = np.zeros((1, layers_noised[0].shape[1]))
     if nons.size == 0:
         nons = np.zeros((1, layers_noised[0].shape[1]))
-    bias, _ = empa_bias_and_weights(sens, nons, n_components=5)
+    bias, _ = empa_bias_and_weights(sens, nons, n_components=n_components)
     return bias
 
 
-def _run_one_config(layers_orig, layers_noised, sensitive_per_layer, bins=20, k_mdav=3, seed_random: int = 99) -> dict:
+def _run_one_config(
+    layers_orig,
+    layers_noised,
+    sensitive_per_layer,
+    bins=20,
+    k_mdav=3,
+    seed_random: int = 99,
+    n_components: int = 5,
+) -> dict:
     flat_orig = np.concatenate([l.flatten() for l in layers_orig])
     flat_nois = np.concatenate([l.flatten() for l in layers_noised])
     baseline = compare_metrics(flat_orig, flat_nois, bins=bins)
@@ -72,7 +88,7 @@ def _run_one_config(layers_orig, layers_noised, sensitive_per_layer, bins=20, k_
         sens_bua = np.zeros((1, layers_noised[0].shape[1]))
     if nons_bua.size == 0:
         nons_bua = np.zeros((1, layers_noised[0].shape[1]))
-    bias_bua, _ = empa_bias_and_weights(sens_bua, nons_bua, n_components=5)
+    bias_bua, _ = empa_bias_and_weights(sens_bua, nons_bua, n_components=n_components)
     G_tda, Gp_tda = tda_style(layers_noised, sensitive_per_layer, k=k_mdav)
     sens_tda = np.concatenate([layers_noised[i][Gp_tda[i]] for i in range(len(Gp_tda)) if len(Gp_tda[i]) > 0])
     nons_tda = np.concatenate([layers_noised[i][G_tda[i]] for i in range(len(G_tda)) if len(G_tda[i]) > 0])
@@ -80,9 +96,11 @@ def _run_one_config(layers_orig, layers_noised, sensitive_per_layer, bins=20, k_
         sens_tda = np.zeros((1, layers_noised[0].shape[1]))
     if nons_tda.size == 0:
         nons_tda = np.zeros((1, layers_noised[0].shape[1]))
-    bias_tda, _ = empa_bias_and_weights(sens_tda, nons_tda, n_components=5)
+    bias_tda, _ = empa_bias_and_weights(sens_tda, nons_tda, n_components=n_components)
     n_sens_per_layer = [max(1, int(np.sum(s))) for s in sensitive_per_layer]
-    bias_random = _empa_bias_random_partition(layers_noised, n_sens_per_layer, seed=seed_random)
+    bias_random = _empa_bias_random_partition(
+        layers_noised, n_sens_per_layer, seed=seed_random, n_components=n_components
+    )
     return {
         "chi2": baseline["chi2"],
         "kl": baseline["kl"],
@@ -116,16 +134,39 @@ def run(config: dict, out_dir: str) -> None:
     n_layers = config.get("n_layers", 4)
 
     rows = []
+    list_eps, list_orig, list_noised = [], [], []
     for eps in epsilons:
         for s in seeds:
             layers_orig, sensitive_per_layer = generate_synthetic_layers(
                 n_samples=n_samples, n_layers=n_layers, sensitive_ratio=0.3, seed=s
             )
             layers_noised = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=eps, seed=s + 1)
+            flat_orig = np.concatenate([l.flatten() for l in layers_orig])
+            flat_noised = np.concatenate([l.flatten() for l in layers_noised])
+            list_eps.append(eps)
+            list_orig.append(flat_orig)
+            list_noised.append(flat_noised)
             res = _run_one_config(layers_orig, layers_noised, sensitive_per_layer, bins=bins, seed_random=s + 100)
             row = {"epsilon": eps, "seed": s, **res}
             rows.append(row)
             print(f"  synthetic epsilon={eps}, seed={s}: rmse={res['rmse']:.4f}, EMPA_bua={res['empa_bias_bua']:.4f}")
+
+    # Task-matched baselines: MomentReg (regress epsilon from moment features), NoiseMLE (grid MLE)
+    eps_grid = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5])
+    moment_reg_rms = float("nan")
+    noise_mle_rms_list = []
+    if len(list_eps) >= 2:
+        moment_reg_rms = moment_reg_rmse(np.array(list_eps), list(zip(list_orig, list_noised)))
+    for i in range(len(list_eps)):
+        rms_i = noise_mle_rmse_with_true(
+            list_orig[i], list_noised[i], list_eps[i], eps_grid, scale=1.0
+        )
+        noise_mle_rms_list.append(rms_i)
+    noise_mle_rms_mean = float(np.nanmean(noise_mle_rms_list)) if noise_mle_rms_list else float("nan")
+    with open(os.path.join(out_dir, "bodhi_vlm_baselines.txt"), "w") as f:
+        f.write(f"moment_reg_rmse,{moment_reg_rms}\n")
+        f.write(f"noise_mle_rmse_mean,{noise_mle_rms_mean}\n")
+    print(f"  Task-matched baselines: MomentReg rMSE={moment_reg_rms:.4f}, NoiseMLE rMSE (mean)={noise_mle_rms_mean:.4f}")
 
     try:
         import pandas as pd
@@ -198,5 +239,126 @@ def run(config: dict, out_dir: str) -> None:
         fig2.savefig(os.path.join(out_dir, "bodhi_vlm_metrics_vs_epsilon.png"), dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Saved: bodhi_vlm_empa_bias.png, bodhi_vlm_metrics_vs_epsilon.png")
+    except ImportError:
+        pass
+
+    # Decomposition and ablation (optional, same out_dir)
+    run_decomposition_experiment(config, out_dir)
+    run_ablation_experiment(config, out_dir)
+
+
+def run_decomposition_experiment(config: dict, out_dir: str) -> None:
+    """
+    (1) Fixed partition, vary epsilon: one partition (BUA at epsilon=0.1), re-noise at each epsilon, report EMPA bias.
+    (2) Fixed epsilon, vary partition: one noised set at epsilon=0.1, report bias for BUA, TDA, random.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    seeds = config.get("seeds") or [config.get("seed", 42)]
+    epsilons = config.get("epsilon", [0.1, 0.01])
+    n_samples = config.get("n_samples", 200)
+    n_layers = config.get("n_layers", 4)
+    bins = config.get("bins", 20)
+    seed0 = seeds[0]
+
+    # (1) Fixed partition, vary epsilon
+    layers_orig, sensitive_per_layer = generate_synthetic_layers(
+        n_samples=n_samples, n_layers=n_layers, sensitive_ratio=0.3, seed=seed0
+    )
+    layers_noised_anchor = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=0.1, seed=seed0 + 1)
+    G_bua_fixed, Gp_bua_fixed = bua_style(layers_noised_anchor, sensitive_per_layer, k=3)
+
+    fixed_partition_rows = []
+    for eps in epsilons:
+        layers_noised = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=eps, seed=seed0 + 1)
+        sens = np.concatenate([layers_noised[i][Gp_bua_fixed[i]] for i in range(len(Gp_bua_fixed)) if len(Gp_bua_fixed[i]) > 0])
+        nons = np.concatenate([layers_noised[i][G_bua_fixed[i]] for i in range(len(G_bua_fixed)) if len(G_bua_fixed[i]) > 0])
+        if sens.size == 0:
+            sens = np.zeros((1, layers_noised[0].shape[1]))
+        if nons.size == 0:
+            nons = np.zeros((1, layers_noised[0].shape[1]))
+        bias, _ = empa_bias_and_weights(sens, nons, n_components=5)
+        fixed_partition_rows.append({"epsilon": eps, "empa_bias_fixed_partition": bias})
+
+    # (2) Fixed epsilon, vary partition (one noised set, BUA vs TDA vs random)
+    layers_noised_fixed = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=0.1, seed=seed0 + 1)
+    res = _run_one_config(layers_orig, layers_noised_fixed, sensitive_per_layer, bins=bins, seed_random=seed0 + 100)
+    fixed_epsilon_rows = [
+        {"partition": "BUA", "empa_bias": res["empa_bias_bua"]},
+        {"partition": "TDA", "empa_bias": res["empa_bias_tda"]},
+        {"partition": "random", "empa_bias": res["empa_bias_random"]},
+    ]
+
+    try:
+        import pandas as pd
+        pd.DataFrame(fixed_partition_rows).to_csv(
+            os.path.join(out_dir, "decomposition_fixed_partition_vs_epsilon.csv"), index=False
+        )
+        pd.DataFrame(fixed_epsilon_rows).to_csv(
+            os.path.join(out_dir, "decomposition_fixed_epsilon_vs_partition.csv"), index=False
+        )
+        print("Saved: decomposition_fixed_partition_vs_epsilon.csv, decomposition_fixed_epsilon_vs_partition.csv")
+    except ImportError:
+        pass
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1, 1, figsize=(4, 2.8))
+        ep_vals = [r["epsilon"] for r in fixed_partition_rows]
+        bias_vals = [r["empa_bias_fixed_partition"] for r in fixed_partition_rows]
+        ax.plot(ep_vals, bias_vals, "o-", color="C0", markersize=8, lw=2)
+        ax.set_xlabel("Privacy budget $\\epsilon$")
+        ax.set_ylabel("EMPA bias (fixed BUA partition)")
+        ax.set_xscale("log")
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+        fig.savefig(os.path.join(out_dir, "decomposition_fixed_partition_bias_vs_epsilon.png"), dpi=150, bbox_inches="tight")
+        plt.close()
+        print("Saved: decomposition_fixed_partition_bias_vs_epsilon.png")
+    except ImportError:
+        pass
+
+
+def run_ablation_experiment(config: dict, out_dir: str) -> None:
+    """Vary K in {2,4,8}, sensitive_ratio in {0.2, 0.3, 0.4}, partition type (BUA, TDA, random)."""
+    os.makedirs(out_dir, exist_ok=True)
+    seeds = config.get("seeds") or [config.get("seed", 42)]
+    n_samples = config.get("n_samples", 200)
+    n_layers = config.get("n_layers", 4)
+    bins = config.get("bins", 20)
+    K_list = [2, 4, 8]
+    ratios = [0.2, 0.3, 0.4]
+    eps = 0.1
+
+    rows = []
+    for K in K_list:
+        for ratio in ratios:
+            for s in seeds:
+                layers_orig, sensitive_per_layer = generate_synthetic_layers(
+                    n_samples=n_samples, n_layers=n_layers, sensitive_ratio=ratio, seed=s
+                )
+                layers_noised = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=eps, seed=s + 1)
+                res = _run_one_config(
+                    layers_orig, layers_noised, sensitive_per_layer,
+                    bins=bins, seed_random=s + 100, n_components=K
+                )
+                rows.append({
+                    "K": K, "sensitive_ratio": ratio, "seed": s,
+                    "empa_bias_bua": res["empa_bias_bua"],
+                    "empa_bias_tda": res["empa_bias_tda"],
+                    "empa_bias_random": res["empa_bias_random"],
+                })
+    try:
+        import pandas as pd
+        df = pd.DataFrame(rows)
+        df.to_csv(os.path.join(out_dir, "ablation_K_ratio_partition.csv"), index=False)
+        summary = df.groupby(["K", "sensitive_ratio"]).agg(
+            empa_bua_mean=("empa_bias_bua", "mean"), empa_bua_std=("empa_bias_bua", "std"),
+            empa_tda_mean=("empa_bias_tda", "mean"), empa_tda_std=("empa_bias_tda", "std"),
+            empa_random_mean=("empa_bias_random", "mean"), empa_random_std=("empa_bias_random", "std"),
+        ).reset_index()
+        summary.to_csv(os.path.join(out_dir, "ablation_summary.csv"), index=False)
+        print("Saved: ablation_K_ratio_partition.csv, ablation_summary.csv")
     except ImportError:
         pass

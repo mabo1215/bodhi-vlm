@@ -1,0 +1,52 @@
+Bodhi VLM 大修主要问题与修改进度（基于 docs/update_revision_suggestion.tex）
+====================================================================
+
+下面每一条对应审稿人在 update_revision_suggestion2.tex 里的“Minimum Bar for Acceptance”等关键建议，每条用一句话概括问题，并给出当前修改进度和已做的改动简要说明。
+
+1）主估计量/输出目标不清（primary target of estimation）
+- 概括：需要明确 Bodhi VLM 的“主输出”到底是哪个量（例如 BAS_ε），以及 Bias_ε、rMSE 等只是诊断指标还是主结果。
+- 进度：已修改（Addressed）。
+- 说明：在 EMPA 小节中增加了 “Primary and secondary outputs of Bodhi VLM” 段落，把 BAS_ε 定义为主输出，把 Bias_ε 明确为权重诊断量，并在结论中用 BAS_ε/Bias_ε 这种表述替换了原来含糊的说法。
+
+2）合成实验中 EMPA bias 对 ε 不敏感（synthetic-study failure mode）
+- 概括：在层次合成数据上，EMPA bias 对不同 ε 几乎不变，需要诚实解释是“结构信号”而不是“预算估计”。
+- 进度：已修改（Addressed）。
+- 说明：已实现分解实验脚本并更新论文。(1) 固定分组、只改 ε：在 src/experiments/synthetic.py 中 run_decomposition_experiment() 固定 BUA 分区后对多 ε 重加噪并记录 EMPA bias，输出 decomposition_fixed_partition_vs_epsilon.csv 与图 decomposition_fixed_partition_bias_vs_epsilon.png；(2) 固定 ε、只改 grouping：同脚本输出 decomposition_fixed_epsilon_vs_partition.csv（BUA/TDA/random）。论文合成实验小节已改为“Decomposition study”段落，并增加 Table~\\ref{tab:decomp} 及对上述 CSV/图的引用，说明固定分区时 bias 可随 ε 响应、固定 ε 时随机分区 bias 更高。
+
+3）缺少任务匹配的基线方法（task-matched baselines）
+- 概括：目前只和 Chi-square、K-L、MMD 这类通用分布距离比，缺少真正针对“预算对齐”任务设计的基线。
+- 进度：已修改（Addressed）。
+- 说明：在 src/utils/metrics.py 中实现 MomentReg（用 moment_features 回归 ε，报 rMSE）和 NoiseMLE（noise_mle_rmse_with_true：高斯 σ=c/ε 下 MLE 估计 ε，报 rMSE）。合成实验 run() 中在每轮收集 (eps, flat_orig, flat_noised)，循环结束后计算 moment_reg_rmse 与 noise_mle_rmse_mean，写入 results/bodhi_vlm_baselines.txt。论文中增加 Table~\\ref{tab:script_baselines} 及“task-matched baselines”段落，说明 MomentReg/NoiseMLE 与主表同一协议下的 rMSE 由脚本输出到 bodhi_vlm_baselines.txt。
+
+4）统计协议太弱（multi-seed statistical reporting）
+- 概括：大部分表格和图只给单次运行结果，没有多种子均值±方差或置信区间。
+- 进度：已修改（Addressed）。
+- 说明：config.json 中 synthetic/detector/vlm 均已配置 seeds: [0,1,2,3,4]。合成实验全程使用 5 seeds，汇总表 bodhi_vlm_metrics_summary.csv 为 mean±std；论文 Table~\\ref{tab:script} 和“Statistical reporting”段已明确“mean$\\pm$std over 5 seeds”。检测器与 VLM 表在论文中已注明“single-run where not otherwise specified”，扩展为全表 mean±std 与图中误差条/95% CI 留作后续在有 GPU 资源时补充。
+
+5）VLM 范围表述过宽（VLM scope: vision encoders vs full VLM）
+- 概括：需要把工作范围严格限定在 VLM 的视觉编码器/vision tower，而不是整条多模态推理链路。
+- 进度：已修改（Addressed）。
+- 说明：在摘要、引言、方法（VLM 扩展小节）、实验、可解释性分析和结论中统一改成“vision encoders/vision towers”，并多次强调“完整的跨模态融合和语言生成留作未来工作”。
+
+6）TDA 跨层映射语义和记号（cross-layer mapping semantics, notation）
+- 概括：原来的 TDA 使用简单交集 G_i^(s) ∩ G_{i-1}^(s)，但不同层特征空间不同，需要显式定义映射 Π_{i→i-1} 并清理表格中的多余符号。
+- 进度：已修改（Addressed）。
+- 说明：在 TDA 描述里加入了 Π_{i→i-1}: X_i → X_{i-1}，用 Π_{i→i-1}(G_i^(s)) 与 G_{i-1}^(s) 的交集定义跨层链接；同时在符号表中删掉未使用的 Ψ_i、g_i，新增 EMPA 的 λ_k、μ_k、σ_k^2 一行。
+
+7）消融实验和 EMPA 设计鲁棒性不足（ablation and EMPA robustness）
+- 概括：当前消融只做了 w/o BUA/TDA/EMPA，缺少对 MDAV、NCP、阈值 τ_i、混合分量数 K 以及随机分组等设计的系统敏感性分析。
+- 进度：已修改（Addressed）。
+- 说明：在 src/experiments/synthetic.py 中新增 run_ablation_experiment()：对 K∈{2,4,8}、sensitive_ratio∈{0.2,0.3,0.4}、5 seeds 跑合成实验，记录 EMPA bias（BUA/TDA/random），输出 ablation_K_ratio_partition.csv 与 ablation_summary.csv。论文消融小节增加“EMPA robustness ablations”段落及 Table~\\ref{tab:ablation_empa}，说明 K、ratio、partition 下 bias 稳定，BUA/TDA 相近、随机分区略高；w/o MDAV/NCP 及 τ_i∈{80%,90%,95%} 在真实数据上的消融仍为后续工作。
+
+8）数据集/实验协议和扰动标定不够清晰（dataset/protocol inconsistencies, perturbation calibration）
+- 概括：需要用标准 COCO 划分命名、解释 MOT20 抽帧方式，并明确写出 Laplace/Gaussian 噪声的标定公式。
+- 进度：已修改（Addressed）。
+- 说明：把 COCO 统一成 train2017/val2017 的写法，并注明 MOT20 为“在官方划分上均匀抽取 150 帧”；在实现细节里加入“Laplace: u~Laplace(0,b), b=c/ε；Gaussian: u~N(0,σ^2 I), σ=c/ε”，并再次强调这是用于可控实验的参考机制，不是形式化 DP 校准。
+
+9）“competitive or lower rMSE” 的表述过强（claim softening）
+- 概括：原文多处说 EMPA 的 rMSE “competitive or lower” 于 Chi-square/K-L/MMD，但具体数字并不总支持这种强表述。
+- 进度：已修改（Addressed）。
+- 说明：在摘要和结论中删除“competitive or lower”这种比较性措辞，改为只说 EMPA 提供稳定的特征级差异信号，并明确指出其数值在没有统一归一化目标前不宜和通用分布距离直接比较。
+
+说明：以上进度是相对于当前版本的 paper/main.tex 而言；如果后续再做新实验或修改，可以在本 txt 里继续补充或更新每条的状态说明。
+

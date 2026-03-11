@@ -2,11 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 Download test images for detector experiments (YOLO/DETR) so runs yield real detections.
-Saves images under data/test_images/. Run from repo root: python scripts/download_detector_test_images.py
+Saves images under data/test_images/. Run from repo root: python src/scripts/download_detector_test_images.py
+Or with PYTHONPATH=src: python -m scripts.download_detector_test_images
 """
 import os
 import sys
 import urllib.request
+
+# Project root (parent of src/)
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 
 # Default: 6 images so we have enough for num_images=4 with variety
 DEFAULT_NUM = 6
@@ -33,8 +38,7 @@ def download_one(url: str, dest: str) -> bool:
 
 
 def main():
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_dir = os.path.join(repo_root, "data", "test_images")
+    out_dir = os.path.join(_PROJECT_ROOT, "data", "test_images")
     os.makedirs(out_dir, exist_ok=True)
 
     num = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_NUM

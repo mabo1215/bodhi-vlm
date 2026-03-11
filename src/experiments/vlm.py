@@ -2,6 +2,7 @@
 """VLM experiments: CLIP/BLIP (Hugging Face) producing vlm_metrics.csv."""
 import os
 import csv
+import warnings
 import numpy as np
 import torch
 from core.pipeline import assess_privacy_budget_from_features
@@ -23,7 +24,9 @@ def _subsample_layers(feats_list: list, max_points: int = MAX_POINTS_PER_LAYER, 
 def _add_noise_to_images(images: torch.Tensor, epsilon: float, seed: int, scale: float = 1.0) -> torch.Tensor:
     g = torch.Generator(device=images.device).manual_seed(seed)
     sigma = scale / (epsilon + 1e-8)
-    return torch.clamp(images + torch.randn_like(images, generator=g) * sigma, 0.0, 1.0)
+    # randn_like() does not accept generator; use randn(..., generator=g) with same shape
+    noise = torch.randn(images.shape, device=images.device, dtype=images.dtype, generator=g)
+    return torch.clamp(images + noise * sigma, 0.0, 1.0)
 
 
 def _sensitive_masks(layer_features: list, has_sensitive: bool) -> list:
@@ -104,11 +107,23 @@ def _run_clip(device: str, images: torch.Tensor, epsilon: float, seed: int, proc
     return assess_privacy_budget_from_features(feats_orig, feats_noised, masks, epsilon=epsilon, bins=20, k_mdav=3)
 
 
+# BLIP model ID: use image-captioning-base (blip-base-en was deprecated/removed on Hugging Face)
+BLIP_MODEL_ID = "Salesforce/blip-image-captioning-base"
+
+
 def _run_blip(device: str, images: torch.Tensor, epsilon: float, seed: int, processor):
-    from transformers import BlipForImageTextRetrieval, BlipProcessor
+    from transformers import BlipForConditionalGeneration, BlipProcessor
     cache = HF_CACHE
-    model = BlipForImageTextRetrieval.from_pretrained("Salesforce/blip-base-en", cache_dir=cache)
-    proc = processor or BlipProcessor.from_pretrained("Salesforce/blip-base-en", cache_dir=cache)
+    # Suppress PyTorch "copying from non-meta to meta parameter" warnings when HF loads BLIP ResNet
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=".*copying from a non-meta parameter.*meta parameter.*",
+            category=UserWarning,
+            module="torch.nn.modules.module",
+        )
+        model = BlipForConditionalGeneration.from_pretrained(BLIP_MODEL_ID, cache_dir=cache)
+    proc = processor or BlipProcessor.from_pretrained(BLIP_MODEL_ID, cache_dir=cache)
     model.to(device)
     model.eval()
     imgs_np = [images[i].cpu().permute(1, 2, 0).numpy() for i in range(images.shape[0])]
