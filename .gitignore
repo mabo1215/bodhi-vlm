@@ -22,3 +22,21 @@ src/models/*
 
 # Test images (optional; run scripts/download_detector_test_images.py)
 data/test_images/
+
+
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.lof
+paper/*.lot
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz
+paper/*.pdf
+paper/*.tex
+paper/*.tex.backup
+paper/*.tex.backup.backup
+paper/*.tex.backup.backup.backup

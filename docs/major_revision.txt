@@ -1,0 +1,60 @@
+Bodhi VLM 大修主要问题与修改进度（基于 docs/update_revision_suggestion.tex）
+====================================================================
+
+下面每一条对应审稿人在 update_revision_suggestion.tex 里的“Minimum Bar for Acceptance”等关键建议，每条用一句话概括问题，并给出当前修改进度和已做的改动简要说明。
+
+1）主估计量/输出目标不清（primary target of estimation）
+- 概括：需要明确 Bodhi VLM 的“主输出”到底是哪个量（例如 BAS_ε），以及 Bias_ε、rMSE 等只是诊断指标还是主结果。
+- 进度：已修改（Addressed）。
+- 说明：在 EMPA 小节中增加了 “Primary and secondary outputs of Bodhi VLM” 段落，把 BAS_ε 定义为主输出，把 Bias_ε 明确为权重诊断量，并在结论中用 BAS_ε/Bias_ε 这种表述替换了原来含糊的说法。
+
+2）合成实验中 EMPA bias 对 ε 不敏感（synthetic-study failure mode）
+- 概括：在层次合成数据上，EMPA bias 对不同 ε 几乎不变，需要诚实解释是“结构信号”而不是“预算估计”。
+- 进度：部分修改（Partially addressed）。
+- 已做修改：在合成实验小节和 Limitations 中明确写出 bias 主要反映分组结构而非扰动强度，并强调该 bias 不能当作有效 ε 的估计。
+- 还能改哪些：真正补上 reviewer 要的“分解实验”：(1) 固定分组、只改噪声尺度，看 BAS_ε 曲线是否随 ε 单调变化；(2) 固定噪声、只改 grouping 规则，看 bias/BAS_ε 的结构敏感性。
+- 暂未完全改完的原因：需要重新设计并运行一组额外脚本（两种实验模式，各若干 ε 和多 seed），时间成本较大，暂时只在文字中把这一点标为 future work。
+
+3）缺少任务匹配的基线方法（task-matched baselines）
+- 概括：目前只和 Chi-square、K-L、MMD 这类通用分布距离比，缺少真正针对“预算对齐”任务设计的基线。
+- 进度：部分修改（Partially addressed）。
+- 已做修改：在实验设计部分补充了对 MomentReg、NoiseMLE、Wass-1 等任务相关基线的文字描述，并说明这是后续要补的工作。
+- 还能改哪些：真正实现这些基线，在同一数据/噪声设置下报出它们的 rMSE 或误差，并在主表中增加一两行“任务匹配基线”的数值对比。
+- 暂未完全改完的原因：实现和调试新的基线模型（尤其是回归和似然估计）需要额外工程工作和运行时间，目前这一版主要先把思想和接口写清楚，实验计划放到后续迭代。
+
+4）统计协议太弱（multi-seed statistical reporting）
+- 概括：大部分表格和图只给单次运行结果，没有多种子均值±方差或置信区间。
+- 进度：部分修改（Partially addressed）。
+- 已做修改：在 “Statistical reporting” 段和复现实验配置表中注明：合成脚本使用 5 个随机种子并报告 mean±std；同时清楚说明其他主实验目前仍是单次运行。
+- 还能改哪些：对至少一组代表性的检测器实验和一组 VLM 实验补充 5 个 seed 的 mean±std，最好在图中加上误差条或 95% 置信区间；必要时在附录开一个“小节专门展示多种子稳定性”。
+- 暂未完全改完的原因：全面多种子重复会明显增加 GPU 计算开销，目前先在合成脚本上示范流程，并把其余多种子结果放到后续有算力/时间时补充。
+
+5）VLM 范围表述过宽（VLM scope: vision encoders vs full VLM）
+- 概括：需要把工作范围严格限定在 VLM 的视觉编码器/vision tower，而不是整条多模态推理链路。
+- 进度：已修改（Addressed）。
+- 说明：在摘要、引言、方法（VLM 扩展小节）、实验、可解释性分析和结论中统一改成“vision encoders/vision towers”，并多次强调“完整的跨模态融合和语言生成留作未来工作”。
+
+6）TDA 跨层映射语义和记号（cross-layer mapping semantics, notation）
+- 概括：原来的 TDA 使用简单交集 G_i^(s) ∩ G_{i-1}^(s)，但不同层特征空间不同，需要显式定义映射 Π_{i→i-1} 并清理表格中的多余符号。
+- 进度：已修改（Addressed）。
+- 说明：在 TDA 描述里加入了 Π_{i→i-1}: X_i → X_{i-1}，用 Π_{i→i-1}(G_i^(s)) 与 G_{i-1}^(s) 的交集定义跨层链接；同时在符号表中删掉未使用的 Ψ_i、g_i，新增 EMPA 的 λ_k、μ_k、σ_k^2 一行。
+
+7）消融实验和 EMPA 设计鲁棒性不足（ablation and EMPA robustness）
+- 概括：当前消融只做了 w/o BUA/TDA/EMPA，缺少对 MDAV、NCP、阈值 τ_i、混合分量数 K 以及随机分组等设计的系统敏感性分析。
+- 进度：部分修改（Partially addressed）。
+- 已做修改：在消融小节中显式列出“w/o MDAV、w/o NCP、τ_i ∈ {80%,90%,95%}、K ∈ {2,4,8}、真实数据上随机 vs 结构化分组”等扩展消融计划；在 EMPA 小节中补充一句，说明对 K、对角 vs 全协方差以及不同 d(Θ_ε,Θ_ε^ref) 形式的鲁棒性分析会放在后续工作里。
+- 还能改哪些：真正跑一两组代表性的“去掉 MDAV/NCP”、“改阈值”、“改 K”以及“随机分组 vs BUA/TDA 分组”的实验，把 rMSE/bias 的变化做成表或图，支撑“设计选择对结果的影响有限/可控”这一结论。
+- 暂未完全改完的原因：这些扩展消融组合数较多，会显著拉长实验矩阵；当前版本优先保证主线实验和脚本可复现，把系统性敏感性分析留到资源更充足时完成。
+
+8）数据集/实验协议和扰动标定不够清晰（dataset/protocol inconsistencies, perturbation calibration）
+- 概括：需要用标准 COCO 划分命名、解释 MOT20 抽帧方式，并明确写出 Laplace/Gaussian 噪声的标定公式。
+- 进度：已修改（Addressed）。
+- 说明：把 COCO 统一成 train2017/val2017 的写法，并注明 MOT20 为“在官方划分上均匀抽取 150 帧”；在实现细节里加入“Laplace: u~Laplace(0,b), b=c/ε；Gaussian: u~N(0,σ^2 I), σ=c/ε”，并再次强调这是用于可控实验的参考机制，不是形式化 DP 校准。
+
+9）“competitive or lower rMSE” 的表述过强（claim softening）
+- 概括：原文多处说 EMPA 的 rMSE “competitive or lower” 于 Chi-square/K-L/MMD，但具体数字并不总支持这种强表述。
+- 进度：已修改（Addressed）。
+- 说明：在摘要和结论中删除“competitive or lower”这种比较性措辞，改为只说 EMPA 提供稳定的特征级差异信号，并明确指出其数值在没有统一归一化目标前不宜和通用分布距离直接比较。
+
+说明：以上进度是相对于当前版本的 paper/main.tex 而言；如果后续再做新实验或修改，可以在本 txt 里继续补充或更新每条的状态说明。
+
