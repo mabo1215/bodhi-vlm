@@ -22,6 +22,17 @@ _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
+# Load .env from project root (HF_TOKEN / HUGGING_FACE_HUB_TOKEN for gated models)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
+except ImportError:
+    pass
+
+# All downloaded models go under src/models/
+from models import setup_models_dir
+setup_models_dir()
+
 
 def load_config(config_path: str) -> dict:
     path = os.path.abspath(config_path)

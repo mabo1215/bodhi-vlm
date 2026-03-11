@@ -5,6 +5,7 @@ import csv
 import numpy as np
 import torch
 from core.pipeline import assess_privacy_budget_from_features
+from models import HF_CACHE
 
 MAX_POINTS_PER_LAYER = 2500
 
@@ -87,8 +88,9 @@ def _collect_blip_layers(model, pixel_values: torch.Tensor, device: str) -> list
 
 def _run_clip(device: str, images: torch.Tensor, epsilon: float, seed: int, processor):
     from transformers import CLIPModel, CLIPProcessor
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    proc = processor or CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    cache = HF_CACHE
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", cache_dir=cache)
+    proc = processor or CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", cache_dir=cache)
     model.to(device)
     model.eval()
     imgs_np = [images[i].cpu().permute(1, 2, 0).numpy() for i in range(images.shape[0])]
@@ -104,8 +106,9 @@ def _run_clip(device: str, images: torch.Tensor, epsilon: float, seed: int, proc
 
 def _run_blip(device: str, images: torch.Tensor, epsilon: float, seed: int, processor):
     from transformers import BlipForImageTextRetrieval, BlipProcessor
-    model = BlipForImageTextRetrieval.from_pretrained("Salesforce/blip-base-en")
-    proc = processor or BlipProcessor.from_pretrained("Salesforce/blip-base-en")
+    cache = HF_CACHE
+    model = BlipForImageTextRetrieval.from_pretrained("Salesforce/blip-base-en", cache_dir=cache)
+    proc = processor or BlipProcessor.from_pretrained("Salesforce/blip-base-en", cache_dir=cache)
     model.to(device)
     model.eval()
     imgs_np = [images[i].cpu().permute(1, 2, 0).numpy() for i in range(images.shape[0])]

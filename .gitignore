@@ -8,5 +8,17 @@ __pycache__/
 *.blg
 *.synctex.gz
 .env
+.venv/
 
 results/
+
+# Downloaded models: cache subdirs and weights; keep package file
+src/models/*
+!src/models/__init__.py
+
+# Weight files (prefer src/models/weights/)
+*.pt
+*.pth
+
+# Test images (optional; run scripts/download_detector_test_images.py)
+data/test_images/

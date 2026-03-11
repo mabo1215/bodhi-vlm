@@ -13,6 +13,9 @@ opencv-python>=4.5
 transformers>=4.30
 timm>=0.9
 
+# Optional: load .env for HF_TOKEN (Hugging Face auth)
+python-dotenv>=1.0
+
 # Optional: OpenAI CLIP example
 # git+https://github.com/openai/CLIP.git
 

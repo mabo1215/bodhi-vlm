@@ -10,14 +10,15 @@
       "n_layers": 4
     },
     "detector": {
-      "enabled": false,
+      "enabled": true,
       "seeds": [0, 1, 2, 3, 4],
       "epsilons": [0.1, 0.01],
       "num_images": 4,
-      "size": 640
+      "size": 640,
+      "test_images_dir": "data/test_images"
     },
     "vlm": {
-      "enabled": false,
+      "enabled": true,
       "seeds": [0, 1, 2, 3, 4],
       "epsilons": [0.1, 0.01],
       "num_images": 4,
@@ -30,7 +31,7 @@
       "vlm_csv": "vlm_metrics.csv"
     },
     "interpretability": {
-      "enabled": false,
+      "enabled": true,
       "n_samples": 200,
       "n_layers": 4,
       "epsilon": 0.1

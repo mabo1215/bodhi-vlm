@@ -1,0 +1,2 @@
+# Shell scripts: force LF so bash does not see \r
+run_all.sh text eol=lf
