@@ -8,3 +8,5 @@ __pycache__/
 *.blg
 *.synctex.gz
 .env
+
+results/

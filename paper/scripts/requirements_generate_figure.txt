@@ -1,3 +1,0 @@
-# For generate_mmdempa_figure.py (fal.ai Nano Banana 2)
-fal-client>=0.4
-python-dotenv>=1.0

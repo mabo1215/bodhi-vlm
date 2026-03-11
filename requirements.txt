@@ -1,0 +1,12 @@
+# Core dependencies for Bodhi VLM experiments and plots
+numpy>=1.20
+scipy>=1.7
+pandas>=1.3
+matplotlib>=3.4
+scikit-learn>=1.0
+
+# Optional (for integration examples, not required to reproduce paper figures):
+# torch>=2.0
+# ultralytics>=8.0
+# git+https://github.com/openai/CLIP.git
+

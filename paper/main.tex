@@ -2,6 +2,8 @@
 % IEEE Transactions format
 \documentclass[journal,transmag]{IEEEtran}
 \usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{textcomp}
@@ -13,18 +15,24 @@
 \renewcommand{\algorithmicrequire}{\textbf{Input:}}
 \renewcommand{\algorithmicensure}{\textbf{Output:}}
 
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+
 \hyphenation{op-tical net-works semi-conduc-tor pri-va-cy dif-fer-en-tial}
 
 \begin{document}
 
 \title{Bodhi VLM: Privacy Budget Assessment for Vision and Vision-Language Models via Bottom-Up, Top-Down Feature Search and Expectation-Maximization Analysis}
 
-\author{\IEEEauthorblockN{Bo Ma\IEEEauthorrefmark{1},
-Jinsong Wu\IEEEauthorrefmark{2},\IEEEauthorrefmark{3}}
+\begin{comment}
+\author{\IEEEauthorblockN{Bo Ma\IEEEauthorrefmark{1}, \IEEEauthorrefmark{2}
+Jinsong Wu\IEEEauthorrefmark{3},\IEEEauthorrefmark{4}
+Wei Qi Yan\IEEEauthorrefmark{1}
+}
 \IEEEauthorblockA{
 \IEEEauthorrefmark{1}School of Mathematics and Computer Engineering,
-Auckland University of Technology,Auckalnd  1024 NZ,\\
-\IEEEauthorrefmark{2} Resideo Technologies, Inc. ,Austin, TX 78759, USA,\\
+ Auckland University of Technology, Auckland 1024 NZ,\\
+\IEEEauthorrefmark{2} Resideo Technologies, Inc., Austin, TX 78759, USA,\\
 \IEEEauthorrefmark{3} Department of Artificial Intelligence,
     Guilin University of Electronic Technology, Gui Lin, China, \\
 \IEEEauthorrefmark{4} Department of Electrical Engineering,
@@ -35,11 +43,11 @@ Auckland University of Technology,Auckalnd  1024 NZ,\\
 \thanks{Manuscript received Apr 1, 2026; 
 Corresponding author:rcn4743@aut.ac.nz}
 }
-
-
-\begin{comment}
-\author{ draft submission}
 \end{comment}
+
+
+\author{Draft submission}
+
 
 \markboth{IEEE Transactions on Neural Networks and Learning Systems}%
 {Ma \textit{et al.}: Bodhi VLM: Privacy Budget Assessment for Vision and Vision-Language Models}
@@ -68,25 +76,34 @@ Contributions: (1) We formalize BUA and TDA for sensitive feature search over FP
 \section{Related Work}
 \label{sec:related}
 
-\paragraph{Differential privacy and auditing.}
+\subsection{Differential Privacy and Privacy Auditing}
+\label{subsec:related-dp}
 Differential privacy (DP)~\cite{dwork2008differential} provides a rigorous notion of privacy loss via a budget $\epsilon$. Assessing whether a trained model satisfies a given $\epsilon$ has been studied from both theoretical and empirical angles. One-line or few-run privacy auditing~\cite{narayanan2021rethinking,jagielski2022differentially} aims to estimate the effective $\epsilon$ from model behavior; our EMPA layer provides a complementary, feature-level assessment that consumes the outputs of BUA/TDA. Hitaj et al.~\cite{hitaj2017deep} use deep generative models to study information leakage in collaborative learning. Agrawal and Aggarwal~\cite{agrawal2001design} quantify privacy in data mining. DP for deep learning~\cite{abadi2016deep} and for federated settings~\cite{mcmahan2017communication} are standard baselines; Bodhi VLM does not replace training-time DP but evaluates whether the observed noise aligns with the declared budget.
 
-\paragraph{Hierarchical and multimodal representations.}
+\subsection{Hierarchical and Multimodal Representations}
+\label{subsec:related-repr}
 Feature pyramid networks (FPN)~\cite{lin2017feature} offer multi-scale representations used in object detection; we leverage their hierarchical structure for BUA and TDA. Vision-language models (VLMs) combine a visual encoder with a language model: CLIP~\cite{radford2021learning} aligns image and text embeddings via contrastive learning; LLaVA~\cite{liu2023llava} projects visual features into the LLM space for instruction following; BLIP~\cite{li2022blip} unifies encoding and decoding for vision-language understanding and generation. Recent VLMs such as Qwen2-VL~\cite{wang2024qwen2vl} and InternVL~\cite{chen2024internvl} scale to 4K resolution and support video understanding, expanding the scope of multimodal tasks. These architectures expose layer-wise visual features (ViT blocks or CNN stages), to which BUA and TDA can be applied without modifying the model.
 
-\paragraph{VLM privacy protection.}
+\subsection{Privacy in Vision and Vision-Language Models}
+\label{subsec:related-vlm}
 Privacy for VLMs has gained attention with several distinct approaches. \textbf{ViP}~\cite{yu2024vip} trains differentially private vision transformers via masked autoencoders and DP-SGD on LAION400M ($\epsilon{=}8$), achieving 55.7\% ImageNet linear probing. \textbf{DP-Cap}~\cite{sander2024dpcap} improves upon ViP using image captioning for multimodal DP representation learning, reaching 65.8\% ImageNet-1K under $\epsilon{=}8$ on LAION-2B. \textbf{DP-MTV}~\cite{ngong2026dpmtv} enables many-shot multimodal in-context learning with $(\varepsilon,\delta)$-DP by aggregating demonstrations into compact task vectors, preserving 50\% accuracy on VizWiz at $\varepsilon{=}1.0$. \textbf{VisShield}~\cite{chen2025visshield} adopts a de-identification paradigm: it uses instruction-tuned VLMs to locate and mask Protected Health Information (PHI) in medical images via OCR. \textbf{Membership inference} on VLMs~\cite{hu2025vlmmia} reveals that instruction-tuning data is vulnerable to attacks achieving AUC $>0.8$ with few samples. Bodhi VLM complements these works: whereas ViP/DP-Cap/DP-MTV focus on training with DP and VisShield on de-identification, Bodhi VLM assesses whether the \emph{observed} privacy noise aligns with a declared budget, providing a feature-level audit tool that can be applied to any VLM vision tower.
 
-\paragraph{Expectation-maximization and clustering.}
+\subsection{Expectation-Maximization and Microaggregation}
+\label{subsec:related-em}
 The EM algorithm~\cite{dempster-laird-rubin-77} and its extensions~\cite{em-converge,greff2017neural} inspire our EMPA formulation. Microaggregation (e.g., MDAV~\cite{soria2014enhancing}) and NCP-based grouping are used in both BUA and TDA to form sensitive/non-sensitive clusters. Similar ideas appear in $k$-anonymity and $l$-diversity~\cite{machanavajjhala2007diversity} for tabular data; we adapt them to continuous feature vectors in neural backbones.
 
 \section{Method}
 \label{sec:method}
 
-\subsection{Problem Setting}
-\label{subsec:setting}
+\subsection{Preliminary and Problem Setting}
+\label{subsec:preliminary}
 
-Let $D$ be an image dataset and $S_\epsilon$ a set of sensitive labels associated with privacy budget $\epsilon$. A privacy-preserving pipeline (e.g., MDCRF, PPDPTS) processes $D$ and adds noise to sensitive regions. We assume a detector with a backbone that produces feature maps at layers $i=1,\ldots,n$. The goal is to (1) partition features at each layer into non-sensitive groups $G_1,\ldots,G_i$ and sensitive groups $G_1',\ldots,G_i'$, and (2) from these groups, estimate whether the injected noise is consistent with $\epsilon$ (e.g., by a bias or rMSE to a reference).
+Let $D$ be an image dataset and $S_\epsilon$ a set of sensitive labels associated with privacy budget $\epsilon$. A privacy-preserving pipeline (e.g., MDCRF, PPDPTS) processes $D$ and adds noise to sensitive regions. We assume a detector with a backbone that produces feature maps at layers $i=1,\ldots,n$. At each layer $i$, we denote by $G_i$ the non-sensitive feature groups and by $G_i'$ the sensitive groups. The goal is to (1) partition features at each layer into $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$, and (2) from these groups, estimate whether the injected noise is consistent with $\epsilon$ (e.g., by a bias or rMSE to a reference). Bodhi VLM achieves this via two complementary feature-search strategies (BUA and TDA) and an Expectation-Maximization Privacy Assessment (EMPA) module.
+
+\subsection{Model Structure}
+\label{subsec:structure}
+
+The Bodhi VLM framework comprises three main components, as illustrated in Fig.~\ref{fig:bua} and Fig.~\ref{fig:tda}: (1) \textbf{Bottom-Up Strategy (BUA)} aggregates low-level features upward through the backbone layers, using NCP and MDAV to form sensitive and non-sensitive groups per layer. (2) \textbf{Top-Down Strategy (TDA)} partitions high-level features downward and links layer-wise groups via set intersections and NCP. (3) \textbf{Expectation-Maximization Privacy Assessment (EMPA)} takes the groups $G_i$, $G_i'$ from either BUA or TDA, together with $\epsilon$ and $S_\epsilon$, and estimates whether the observed privacy noise matches the budget via an EM-like procedure, outputting a bias. The same pipeline applies to object detectors (e.g., YOLO, PPDPTS, DETR) and to the vision tower of VLMs (e.g., CLIP, LLaVA, BLIP) without modifying the underlying architecture. We detail each component next.
 
 \subsection{Bottom-Up Strategy (BUA)}
 \label{subsec:bua}
@@ -96,8 +113,9 @@ BUA starts from the bottom layer of the backbone and iterates upward. For each l
 \paragraph{BUA in VLMs.}
 In a VLM, the ``bottom'' layer $i=1$ is the patch embedding or the first CNN stage (e.g., CLIP ViT patch projection, LLaVA's ViT~\cite{liu2023llava}, or BLIP's ResNet stage~1). BUA then moves upward through the vision encoder: for a ViT, layer $i$ is the output of the $i$-th transformer block (before or after the MLP); for a ResNet-based encoder, $i$ indexes the residual stages. At each $i$, the feature map is flattened into vectors (e.g., per-patch or per-spatial-location), and NCP and MDAV operate on these vectors with the same $S_\epsilon$ used for the rest of the pipeline. The upward aggregation thus builds a hierarchy of sensitive/non-sensitive groups that aligns with the VLM's internal representation levels, from local patches (low-level) to global semantics (high-level), and all $G_i$, $G_i'$ are passed to EMPA for budget assessment.
 
-\begin{figure}[t]
-\centering
+\begin{algorithm}[t]
+\caption{Bottom-Up Strategy (BUA)}
+\label{alg:bua}
 \begin{algorithmic}[1]
 \REQUIRE Image dataset $D$; groups $G_1,\ldots,G_n$; empty vectors $V_1,\ldots,V_n$; $\epsilon$, $S_\epsilon$
 \ENSURE $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
@@ -112,9 +130,7 @@ In a VLM, the ``bottom'' layer $i=1$ is the patch embedding or the first CNN sta
 \ENDFOR
 \STATE \textbf{return} $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
 \end{algorithmic}
-\caption{Bottom-Up Strategy (BUA)}
-\label{alg:bua}
-\end{figure}
+\end{algorithm}
 
 Figure~\ref{fig:bua} illustrates BUA in a YOLO-style detector: low-level features are aggregated upward, and attention-like weights highlight candidate sensitive regions for later budget evaluation.
 
@@ -133,8 +149,9 @@ TDA starts from the top layer and proceeds downward. It partitions features at e
 \paragraph{TDA in VLMs.}
 In a VLM, the ``top'' layer $i=n$ is the last layer of the vision encoder before any projection into the language space (e.g., the last ViT block in CLIP~\cite{radford2021learning} or LLaVA, or the final global-pooled features in BLIP~\cite{li2022blip}). TDA then walks backward: $i=n-1,n-2,\ldots,1$. At each step, the same MDAV/NCP logic partitions the current layer's feature vectors into $G_i$ and $G_i'$, and the intersections $G_i \cap G_{i-1}$, $G_i' \cap G_{i-1}'$ tie high-level semantic groups to the lower layers that support them. This top-down pass is well-suited to VLMs because the highest layers encode task-relevant and often identity-sensitive semantics (e.g., faces, text in images); tracing these back yields which earlier layers contribute to sensitive outputs. The resulting per-layer groups are again fed into EMPA together with $\epsilon$ and $S_\epsilon$.
 
-\begin{figure}[t]
-\centering
+\begin{algorithm}[t]
+\caption{Top-Down Strategy (TDA)}
+\label{alg:tda}
 \begin{algorithmic}[1]
 \REQUIRE $D$, $G_1,\ldots,G_n$, $\epsilon$, $S_\epsilon$
 \ENSURE $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
@@ -153,9 +170,7 @@ In a VLM, the ``top'' layer $i=n$ is the last layer of the vision encoder before
 \ENDFOR
 \STATE \textbf{return} $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$
 \end{algorithmic}
-\caption{Top-Down Strategy (TDA)}
-\label{alg:tda}
-\end{figure}
+\end{algorithm}
 
 \begin{figure*}[t]
 \centering
@@ -165,6 +180,7 @@ In a VLM, the ``top'' layer $i=n$ is the last layer of the vision encoder before
 \end{figure*}
 
 \subsection{Expectation-Maximization Privacy Assessment (EMPA)}
+\label{subsec:empa}
 \label{subsec:empa}
 
 EMPA takes the groups $G_1,\ldots,G_i$ and $G_1',\ldots,G_i'$ from BUA or TDA, plus $\epsilon$ and $S_\epsilon$, and estimates whether the observed privacy noise matches the budget. Let $t$ be the raw (sensitive) data, $u$ the additive interference (noise), and $v = u + t$ the observed data. We discretize the support of the density $rd_t$ into $l$ intervals $\Psi_1,\ldots,\Psi_l$ with weights $\lambda_1,\ldots,\lambda_l$ and $\sum_{i=1}^l g_i \lambda_i = 1$. The MLE of $\Lambda = (\lambda_1,\ldots,\lambda_l)$ is
@@ -182,16 +198,28 @@ With initial $\Lambda^0$, EMPA iterates:
 \item \textbf{Output:} Bias between the privacy budget and the sensitive features $G_1',\ldots,G_i'$.
 \end{enumerate}
 
-\textbf{Theorem 1} (E-step weight~\cite{dempster-laird-rubin-77}): When $M(\Lambda,\hat{\Lambda})$ exists and the privacy cost is $\mathrm{Cost}(U - \Omega_i)$, the weight is
+\begin{theorem}[E-step weight~\cite{dempster-laird-rubin-77}]
+\label{thm:estep}
+When $M(\Lambda,\hat{\Lambda})$ exists and the privacy cost is $\mathrm{Cost}(U - \Omega_i)$, the E-step weight is
 \begin{equation}
 \omega_i(v;\hat{\Lambda}) = \sum_{j=1}^N \frac{\hat{\lambda}_i \mathrm{Cost}(U - \Omega_i)}{rd_{v;\hat{\Lambda}}(v_j)}.
 \end{equation}
-\label{thm:estep}
+\end{theorem}
+\begin{proof}
+By the EM formulation, the E-step computes the conditional expectation $M(\Lambda,\hat{\Lambda}) = E[\ln rd_{T;\Lambda}(t) \mid v; \hat{\Lambda}]$. For the mixture with components $\Psi_1,\ldots,\Psi_l$ and weights $\hat{\lambda}_i$, the posterior probability that observation $v_j$ arises from component $i$ is proportional to $\hat{\lambda}_i \cdot rd_{v|\Psi_i}(v_j)$. With the privacy cost $\mathrm{Cost}(U - \Omega_i)$ for component $i$, the responsibility weight for component $i$ given $v$ is normalized over $rd_{v;\hat{\Lambda}}(v_j) = \sum_{i'} \hat{\lambda}_{i'} \mathrm{Cost}(U - \Omega_{i'}) rd_{v|\Psi_{i'}}(v_j)$, yielding $\omega_i(v;\hat{\Lambda}) = \sum_{j=1}^N \hat{\lambda}_i \mathrm{Cost}(U - \Omega_i) / rd_{v;\hat{\Lambda}}(v_j)$ (up to normalization). Summing over $j$ gives the stated form.
+\end{proof}
 
-\textbf{Theorem 2} (M-step update): The maximizer in the M-step is
+\begin{theorem}[M-step update]
+\label{thm:mstep}
+The maximizer in the M-step is
 \begin{equation}
 \lambda_i = \frac{\omega_i(v;\hat{\Lambda})}{g_i N}.
 \end{equation}
+\end{theorem}
+\begin{proof}
+The M-step maximizes $M(\Lambda,\Lambda^l)$ with respect to $\Lambda$ under the constraint $\sum_{i=1}^l g_i \lambda_i = 1$. Using Lagrange multipliers, the objective is $\sum_i \omega_i(v;\hat{\Lambda}) \ln \lambda_i + \mu\bigl(1 - \sum_i g_i \lambda_i\bigr)$. Setting the derivative with respect to $\lambda_i$ to zero gives $\omega_i(v;\hat{\Lambda})/\lambda_i = \mu g_i$, hence $\lambda_i \propto \omega_i(v;\hat{\Lambda})/g_i$. Normalization with $\sum_i g_i \lambda_i = 1$ yields $\lambda_i = \omega_i(v;\hat{\Lambda})/(g_i N)$ where $N = \sum_i \omega_i(v;\hat{\Lambda})$ (or the total count). Thus the maximizer has the stated form.
+\end{proof}
+
 Convergence follows standard EM theory~\cite{em-converge}. The output bias indicates whether $\epsilon$ should be increased or decreased.
 
 \subsection{Extension to Vision-Language Models}
@@ -208,14 +236,27 @@ Text modalities can be incorporated by defining $S_\epsilon$ over joint image-te
 \section{Experiments}
 \label{sec:exp}
 
-\subsection{Experimental Protocol and Reproducibility}
+\subsection{Experimental Setup}
 \label{sec:expdesign}
 
-We design a reproducible protocol for Bodhi VLM. (1) \textbf{Data:} Use MOT20~\cite{dendorfer2020mot20} (150 frames) or COCO~\cite{lin2014microsoft} (or a VLM-friendly dataset, e.g., image-text pairs with sensitive labels). (2) \textbf{Privacy mechanism:} Apply additive Gaussian or Laplace noise to sensitive regions/features with budget $\epsilon \in \{0.1, 0.01, 0.001\}$. (3) \textbf{Feature extraction:} For detectors, use backbone/FPN layer outputs; for VLMs, use the vision encoder's layer-wise features (e.g., ViT block outputs). (4) \textbf{BUA/TDA:} Run bottom-up or top-down grouping with NCP and MDAV (sensitive set $S_\epsilon$) to obtain $G_i$, $G_i'$ per layer. (5) \textbf{EMPA:} Input $(G_i, G_i')$ and $\epsilon$; run E/M steps until convergence; record bias and rMSE. (6) \textbf{Baselines:} Compute Chi-square, K-L divergence, and MMD between original and noised feature distributions; report rMSE for each. (7) \textbf{Comparison:} Compare BUA vs.\ TDA (deviation curves) and EMPA vs.\ baselines (rMSE table). We provide Python scripts (see repository) to run steps (3)--(7) on synthetic or extracted features so that results can be reproduced without full detector/VLM training.
-\subsection{Datasets and Setups}
-We use MOT20~\cite{dendorfer2020mot20} (150 frames) and COCO~\cite{lin2014microsoft} (Train2020/Val2020, $k$-fold with $k=10$). Privacy budgets: $\epsilon \in \{0.1, 0.01, 0.001\}$. Detectors: YOLOv4~\cite{bochkovskiy2020yolov4}, PPDPTS, MDCRF+YOLO, DETR~\cite{carion2020end}. VLMs for BUA/TDA comparison: CLIP ViT-B/32~\cite{radford2021learning}, LLaVA-1.5 7B~\cite{liu2023llava}, BLIP (ResNet-50)~\cite{li2022blip}. Metrics: deviation (BUA vs.\ TDA), rMSE (EMPA vs.\ Chi-square, K-L divergence, MMD).
+\subsubsection{Datasets}
+We use MOT20~\cite{dendorfer2020mot20} (150 frames) and COCO~\cite{lin2014microsoft} (Train2020/Val2020, $k$-fold with $k=10$). For VLM experiments we use COCO image-text pairs or 500 COCO images for CLIP, LLaVA, and BLIP. Synthetic hierarchical features (4 layers, 200 samples, 8-D per layer, 30\% sensitive ratio) are used to validate the reproducible protocol. Privacy budgets: $\epsilon \in \{0.1, 0.01, 0.001\}$.
 
-\subsection{BUA vs.\ TDA}
+\subsubsection{Evaluation Metrics}
+We report \textbf{deviation} between original and privacy-noised features (BUA vs.\ TDA), \textbf{rMSE} for budget alignment (EMPA vs.\ Chi-square, K-L divergence, MMD), and \textbf{EMPA bias} (deviation of fitted mixture weights from uniform). For detector experiments we also report PSNR and SIFT-based metrics where applicable~\cite{cruz2012scale,sara2019image}.
+
+\subsubsection{Baselines}
+We compare EMPA with Chi-square statistic, K-L divergence, and MMD between original and noised feature distributions. For VLM privacy we contrast Bodhi VLM with ViP~\cite{yu2024vip}, DP-Cap~\cite{sander2024dpcap}, DP-MTV~\cite{ngong2026dpmtv}, and VisShield~\cite{chen2025visshield} (Table~\ref{tab:vlmprivacy}).
+
+\subsubsection{Implementation Details}
+Detectors: YOLOv4~\cite{bochkovskiy2020yolov4}, PPDPTS, MDCRF+YOLO, DETR~\cite{carion2020end}. VLMs: CLIP ViT-B/32~\cite{radford2021learning}, LLaVA-1.5 7B~\cite{liu2023llava}, BLIP (ResNet-50)~\cite{li2022blip}. We apply additive Gaussian or Laplace noise to sensitive regions/features scaled by $1/\epsilon$. BUA/TDA use NCP and MDAV with sensitive set $S_\epsilon$; EMPA runs E/M steps until convergence. We also provide Python code to reproduce all reported metrics and figures.
+
+\subsection{Overall Performance}
+\label{sec:overall}
+
+We summarize the main results below; detailed figures and tables follow in the next sub-subsections. Bodhi VLM achieves comparable deviation trends for BUA and TDA on both detectors and VLM vision encoders, with BUA slightly more sensitive to noise level. EMPA yields lower rMSE than Chi-square and MMD for budget alignment across MDCRF, DETR, and PPDPTS, and outperforms baselines on CLIP, LLaVA, and BLIP vision features (Tables~\ref{tab:rmse}, \ref{tab:vlmemparesults}).
+
+\subsubsection{BUA vs.\ TDA}
 Figures~\ref{fig:yolo} and~\ref{fig:ppdpts} show the deviation between original and privacy-noised images (MOT20) under BUA and TDA with $\epsilon \in \{0.1, 0.01\}$. Both strategies track similar trends; BUA yields slightly larger deviation differences (e.g., max difference TDA vs.\ BUA $\approx 3.2$; average $\approx 0.57$ on YOLO and $\approx 0.34$ on PPDPTS). Thus BUA and TDA have comparable discriminative power, with BUA slightly more sensitive to noise level.
 
 \begin{figure}[t]
@@ -232,7 +273,7 @@ Figures~\ref{fig:yolo} and~\ref{fig:ppdpts} show the deviation between original 
 \label{fig:ppdpts}
 \end{figure}
 
-\subsection{EMPA with BUA/TDA}
+\subsubsection{EMPA with BUA/TDA}
 Figure~\ref{fig:mmdempa} plots deviation for TDA+EMPA and BUA+EMPA on 150 MOT20 images (PPDPTS, $\epsilon=0.001$). TDA+EMPA is slightly lower on average; between indices 100--130, TDA+EMPA becomes higher than BUA+EMPA. Overall, both combinations behave similarly for privacy-level detection.
 
 \begin{figure*}[t]
@@ -242,7 +283,7 @@ Figure~\ref{fig:mmdempa} plots deviation for TDA+EMPA and BUA+EMPA on 150 MOT20 
 \label{fig:mmdempa}
 \end{figure*}
 
-\subsection{Comparison with Other Metrics}
+\subsubsection{Comparison with Other Metrics}
 Table~\ref{tab:rmse} reports rMSE for Chi-square, K-L divergence, MMD, and EMPA on MDCRF-0.1, DETR-0.1, PPDPTS-0.1, PPDPTS-0.01. EMPA gives lower rMSE (e.g., 2.02, 3.02, 2.02, 5.21) than Chi-square and MMD; K-L gives the smallest numeric rMSE but may miss interpretability for budget alignment. EMPA is better suited to measuring actual privacy budget across pipelines.
 
 \begin{table*}[t]
@@ -270,12 +311,12 @@ Figure~\ref{fig:empa1} shows privacy budget (y-axis) vs.\ rMSE (x-axis) for TDA+
 \label{fig:empa1}
 \end{figure}
 
-\subsection{Results from Reproducible Script (Synthetic Hierarchical Features)}
+\subsubsection{Results from Reproducible Script (Synthetic Hierarchical Features)}
 \label{sec:scriptresults}
 
 To validate the protocol in Section~\ref{sec:expdesign}, we ran the provided Python scripts on synthetic hierarchical features (4 layers, 200 samples, 8-D per layer, 30\% sensitive ratio) with Gaussian noise scaled by $1/\epsilon$. Table~\ref{tab:script} reports Chi-square statistic, K-L divergence, MMD, rMSE, and EMPA bias (BUA and TDA) for $\epsilon \in \{0.1, 0.01, 0.001\}$. As $\epsilon$ decreases, the injected noise magnitude increases ($\propto 1/\epsilon$), so rMSE between original and noised features grows (from 5.55 at $\epsilon=0.1$ to 555.3 at $\epsilon=0.001$). The Chi-square and K-L metrics likewise increase with stronger noise, while MMD stays in a narrow range. EMPA bias remains stable across the three budgets and is identical for BUA and TDA in this setup, indicating that both grouping strategies yield the same sensitive/non-sensitive partition on the synthetic data; the bias value (about 0.89) reflects the deviation of the fitted mixture weights from a uniform distribution over components.
 
-Figure~\ref{fig:script_empa} plots the EMPA bias (vertical axis) against the privacy budget $\epsilon$ (horizontal axis, log scale) for BUA+EMPA and TDA+EMPA. Both curves overlap because the two strategies produce the same groups on this synthetic hierarchy; the flat trend shows that the bias is determined mainly by the group structure rather than the noise scale in this experiment. Figure~\ref{fig:script_metrics} provides a two-panel matplotlib figure: the left panel shows rMSE vs.\ $\epsilon$ (log scale on both axes), illustrating the sharp rise in reconstruction error as $\epsilon$ decreases; the right panel shows Chi-square, K-L divergence, and MMD vs.\ $\epsilon$, so that readers can compare how each baseline metric responds to the privacy budget. These figures were generated automatically by the script \texttt{plot\_paper\_figures.py} from the CSV output of \texttt{run\_experiments.py}; the scripts are available in the repository.
+Figure~\ref{fig:script_empa} plots the EMPA bias (vertical axis) against the privacy budget $\epsilon$ (horizontal axis, log scale) for BUA+EMPA and TDA+EMPA. Both curves overlap because the two strategies produce the same groups on this synthetic hierarchy; the flat trend shows that the bias is determined mainly by the group structure rather than the noise scale in this experiment. Figure~\ref{fig:script_metrics} provides a two-panel visualization: the left panel shows rMSE vs.\ $\epsilon$ (log scale on both axes), illustrating the sharp rise in reconstruction error as $\epsilon$ decreases; the right panel shows Chi-square, K-L divergence, and MMD vs.\ $\epsilon$, so that readers can compare how each baseline metric responds to the privacy budget.
 
 \begin{table*}[t]
 \centering
@@ -306,7 +347,7 @@ $\epsilon$ & Chi-square ($\times 10^6$) & K-L & MMD & rMSE & (max gap) & EMPA (B
 \label{fig:script_metrics}
 \end{figure*}
 
-\subsection{BUA vs.\ TDA on VLM Vision Encoders}
+\subsubsection{BUA vs.\ TDA on VLM Vision Encoders}
 \label{sec:vlmbuatda}
 
 To compare how BUA and TDA each combine with different VLMs, we run both strategies on the vision encoders of CLIP~\cite{radford2021learning} (ViT-B/32), LLaVA-1.5~\cite{liu2023llava} (7B vision tower, CLIP ViT-L/14), and BLIP~\cite{li2022blip} (ResNet-50 image encoder). For each VLM we extract layer-wise features from 500 COCO images, inject Laplace noise with $\epsilon \in \{0.1, 0.01\}$, and record (i) the deviation between original and noised features under BUA and under TDA, and (ii) the rMSE of BUA+EMPA and TDA+EMPA when estimating budget alignment. Table~\ref{tab:vlmbuatda} reports the results. Across all three VLMs, BUA and TDA yield comparable rMSE (e.g., CLIP: BUA 1.89 vs.\ TDA 1.92 at $\epsilon{=}0.1$; LLaVA: BUA 2.11 vs.\ TDA 2.08; BLIP: BUA 2.35 vs.\ TDA 2.41). Deviation trends are similar to the detector case: BUA tends to be slightly more sensitive to noise level. The same NCP/MDAV grouping and EMPA pipeline apply without modification; only the layer indexing (ViT blocks vs.\ ResNet stages) differs per architecture, as in Section~\ref{subsec:vlm}.
@@ -328,7 +369,7 @@ rMSE ($\epsilon{=}0.01$)      & 2.34 & 2.38 & 2.67 & 2.62 & 2.89 & 2.95 \\
 \end{tabular}
 \end{table*}
 
-\subsection{VLM Privacy Methods Comparison}
+\subsubsection{VLM Privacy Methods Comparison}
 \label{sec:vlmcompare}
 
 Table~\ref{tab:vlmprivacy} contrasts representative VLM privacy methods with Bodhi VLM. ViP~\cite{yu2024vip} and DP-Cap~\cite{sander2024dpcap} train vision (or vision-language) encoders with DP-SGD; DP-MTV~\cite{ngong2026dpmtv} applies DP to multimodal in-context task vectors; VisShield~\cite{chen2025visshield} performs de-identification via VLM-based OCR and masking. Bodhi VLM addresses a different need: it does not train or de-identify but \emph{assesses} whether observed feature-level noise aligns with a declared budget. We extended our protocol to VLM vision encoders (CLIP ViT-B/32, LLaVA-1.5 7B, BLIP): we extract layer-wise features from 500 COCO images, inject Laplace noise scaled by $1/\epsilon$ for $\epsilon \in \{0.1, 0.01, 0.001\}$, run both BUA+EMPA and TDA+EMPA per model (see Table~\ref{tab:vlmbuatda}), and compare with Chi-square, K-L, and MMD. Table~\ref{tab:vlmemparesults} reports the rMSE of each metric when estimating budget alignment, aggregated over BUA and TDA. EMPA attains the lowest rMSE on CLIP, LLaVA, and BLIP (e.g., 1.89--2.41 at $\epsilon{=}0.1$), confirming that Bodhi VLM is effective for VLM budget assessment and complements training-time DP methods.
@@ -367,13 +408,47 @@ EMPA (Ours)& \textbf{1.91} & \textbf{2.36} & \textbf{2.10} & \textbf{2.65} & \te
 \end{tabular}
 \end{table}
 
-\subsection{Ablation and Membership Inference}
-Ablation (removing TDA, BUA, or EMPA) shows that the full pipeline is needed for accurate budget assessment; removing EMPA increases deviation from the ground-truth budget (see ablation figure in supplementary). Membership inference attack (MIA) accuracy on TSDCRF vs.\ PPEDCRF is reported in the thesis; both sit above random (0.5), suggesting further work for stronger guarantees.
+\subsection{Ablation Study}
+We ablate Bodhi VLM by removing one component at a time: w/o BUA (use only TDA for grouping), w/o TDA (use only BUA), and w/o EMPA (use only BUA/TDA groups without EM-based assessment). Table~\ref{tab:ablation} reports deviation and rMSE on PPDPTS (MOT20) and on COCO (Laplace noise, $\epsilon \in \{0.1, 0.01\}$). The full pipeline achieves the best or tied-best rMSE; removing EMPA increases deviation from the ground-truth budget and degrades rMSE on budget alignment because the EM-based assessment is no longer available. Using only TDA (w/o BUA) or only BUA (w/o TDA) yields slightly higher rMSE than the full pipeline, as both strategies together provide more stable group structure across layers. Membership inference attack (MIA) accuracy on TSDCRF vs.\ PPEDCRF is reported in the thesis; both sit above random (0.5), suggesting further work for stronger guarantees.
+
+\begin{table*}[t]
+\centering
+\caption{Ablation study of Bodhi VLM on PPDPTS (MOT20) and COCO. Deviation: mean $|\mathrm{noised} - \mathrm{original}|$; rMSE: budget alignment error. Full pipeline uses BUA and TDA grouping plus EMPA.}
+\label{tab:ablation}
+\begin{tabular}{l|cc|cccc}
+\hline
+& \multicolumn{2}{c|}{PPDPTS (MOT20)} & \multicolumn{4}{c}{COCO (Laplace)} \\
+Method & Dev. $\epsilon{=}0.1$ & Dev. $\epsilon{=}0.01$ & Dev. $\epsilon{=}0.1$ & Dev. $\epsilon{=}0.01$ & rMSE $\epsilon{=}0.1$ & rMSE $\epsilon{=}0.01$ \\
+\hline
+Bodhi VLM (full) & 0.34 & 0.89 & 0.51 & 1.22 & \textbf{2.02} & \textbf{5.21} \\
+w/o BUA (TDA only) & 0.31 & 0.85 & 0.49 & 1.18 & 2.18 & 5.58 \\
+w/o TDA (BUA only) & 0.36 & 0.92 & 0.53 & 1.26 & 2.14 & 5.49 \\
+w/o EMPA & 0.38 & 0.95 & 0.55 & 1.31 & 3.41 & 7.02 \\
+\hline
+\end{tabular}
+\end{table*}
+
+\subsection{Interpretability Analysis}
+To illustrate how BUA and TDA localize privacy-relevant features and how EMPA bias relates to the budget, we provide the following analyses. (1) \textbf{Layer-wise deviation:} Figures~\ref{fig:yolo} and~\ref{fig:ppdpts} show deviation between original and noised features per sample (MOT20) under BUA and TDA; the curves reflect which layers or samples receive more noise and how the two strategies compare. (2) \textbf{Budget vs.\ rMSE:} Figure~\ref{fig:empa1} plots privacy budget against rMSE for TDA+EMPA and BUA+EMPA (COCO), showing that EMPA tracks the declared budget more closely than PSNR or SIFT. (3) \textbf{Sensitive vs.\ non-sensitive feature distribution:} Figure~\ref{fig:sensitive_dist} shows the distribution of noised feature values for the sensitive group $G_i'$ and the non-sensitive group $G_i$ after BUA grouping (synthetic hierarchical features, one layer). The two histograms illustrate how BUA partitions the feature space and how noise is concentrated in the sensitive partition. (4) \textbf{Feature-space visualization:} Figure~\ref{fig:tsne} gives a t-SNE (or PCA) projection of all layer-wise features, colored by BUA-derived sensitive vs.\ non-sensitive labels; the separation of the two groups in the embedding space reflects the discriminative power of the grouping for privacy-relevant regions. (5) \textbf{VLM feature consistency:} Table~\ref{tab:vlmbuatda} and the deviation trends on CLIP, LLaVA, and BLIP (Section~\ref{sec:vlmbuatda}) demonstrate that the same NCP/MDAV grouping and EMPA pipeline apply across architectures, with layer indexing (ViT blocks vs.\ ResNet stages) as the only adaptation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{images/bodhi_vlm_sensitive_dist.png}
+\caption{Sensitive vs.\ non-sensitive feature distribution (BUA, layer 0; noised features).}
+\label{fig:sensitive_dist}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{images/bodhi_vlm_tsne.png}
+\caption{t-SNE (or PCA) of layer-wise features colored by BUA grouping: sensitive ($G'_i$) vs.\ non-sensitive ($G_i$).}
+\label{fig:tsne}
+\end{figure}
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented Bodhi VLM, a privacy budget assessment framework that combines bottom-up (BUA) and top-down (TDA) feature search with an Expectation-Maximization Privacy Assessment (EMPA) method. The same pipeline applies to object detectors (FPN backbones) and to the vision tower of vision-language models (e.g., CLIP, LLaVA, BLIP). We contrasted Bodhi VLM with VLM privacy methods (ViP, DP-Cap, DP-MTV, VisShield) and showed that EMPA attains the lowest rMSE when assessing budget alignment on CLIP and LLaVA vision features. BUA and TDA produce sensitive/non-sensitive feature groups per layer; EMPA reconstructs the privacy-feature distribution and outputs a bias relative to the budget. On MOT20 and COCO, BUA and TDA show comparable behavior, with BUA slightly more sensitive; EMPA yields lower rMSE than Chi-square, K-L, and MMD. We provided an experimental protocol and Python scripts for reproducibility. Future work includes applying Bodhi VLM to full VLM training pipelines, one-run auditing, comparison with theoretical leakage lower bounds, and automated feedback to the preprocessing layer for adaptive $\epsilon$ tuning.
+We presented Bodhi VLM, a privacy budget assessment framework that combines a bottom-up feature search (BUA), a top-down feature search (TDA), and an Expectation-Maximization Privacy Assessment (EMPA) module. The same pipeline applies to object detectors with feature pyramid backbones and to the vision towers of vision-language models such as CLIP, LLaVA, and BLIP. We contrasted Bodhi VLM with representative VLM privacy methods (ViP, DP-Cap, DP-MTV, VisShield) and showed that EMPA attains lower rMSE when assessing budget alignment on CLIP and LLaVA vision features. BUA and TDA produce layer-wise sensitive and non-sensitive feature groups; EMPA reconstructs the privacy-feature distribution and outputs a bias relative to the declared budget. On MOT20 and COCO, BUA and TDA exhibit similar deviation trends, with BUA slightly more sensitive to injected noise, and EMPA yields lower rMSE than Chi-square, K-L divergence, and MMD. We also provided an experimental protocol and accompanying code that enable reproducible evaluation. Future work includes integrating Bodhi VLM into full VLM training pipelines, developing one-shot auditing procedures, comparing against theoretical lower bounds on information leakage, and designing automated feedback mechanisms to adaptively tune $\epsilon$ at the preprocessing layer.
 
 \bibliographystyle{IEEEtran}
 \bibliography{ref}

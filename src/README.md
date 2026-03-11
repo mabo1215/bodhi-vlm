@@ -1,35 +1,70 @@
-# Bodhi VLM 实验脚本
+# Bodhi VLM experiment scripts
 
-本目录包含 Bodhi VLM 论文实验的 Python 脚本，用于复现 BUA/TDA、EMPA 与 Chi-square、K-L、MMD 的对比。
+This directory contains the Python scripts used for Bodhi VLM experiments and integration examples. They implement:
 
-## 依赖
+- BUA/TDA-style grouping of hierarchical features,
+- EMPA-style privacy budget assessment,
+- Synthetic experiments comparing EMPA with Chi-square, K-L divergence, and MMD,
+- Example integrations with YOLO and CLIP.
+
+## Dependencies
+
+From the project root, install the core dependencies:
 
 ```bash
-pip install -r requirements_experiments.txt
+pip install -r requirements.txt
 ```
 
-或至少安装：`numpy`, `scipy`（`pandas` 和 `matplotlib` 可选，用于保存 CSV 和绘图）。
+This installs the packages required for synthetic experiments and plotting (`numpy`, `scipy`, `pandas`, `matplotlib`, `scikit-learn`).
 
-## 运行实验
+To run the integration examples you will also need:
 
 ```bash
-# 默认：epsilon=0.1, 0.01，结果写入 results/
+pip install ultralytics
+pip install git+https://github.com/openai/CLIP.git
+```
+
+## Running synthetic experiments
+
+The main synthetic experiment runner is `run_experiments.py`:
+
+```bash
+cd src
+
+# Default: epsilon = 0.1, 0.01; results written to ../results
 python run_experiments.py
 
-# 指定输出目录和多个隐私预算
+# Custom output directory and multiple budgets
 python run_experiments.py --out_dir ../results --epsilon 0.1 0.01 0.001
 
-# 更多样本与层数（更接近 VLM 多层特征）
+# More samples and layers (closer to VLM-style hierarchies)
 python run_experiments.py --n_samples 500 --n_layers 6 --epsilon 0.1 0.01
 ```
 
-## 输出
+Outputs include:
 
-- `results/bodhi_vlm_metrics.csv`：各 epsilon 下的 chi2、kl、mmd、rmse、empa_bias_bua、empa_bias_tda
-- `results/bodhi_vlm_empa_bias.png`：EMPA bias 随 epsilon 变化的曲线（若已安装 matplotlib）
+- `bodhi_vlm_metrics.csv` (per-ε metrics: chi2, kl, mmd, rmse, empa_bias_bua, empa_bias_tda)
+- `bodhi_vlm_empa_bias.png` and `bodhi_vlm_metrics_vs_epsilon.png` (if `matplotlib` is available)
 
-## 模块说明
+## Core modules
 
-- **metrics.py**：Chi-square、K-L、MMD、rMSE、EMPA 偏置（简化 EM 混合权重）
-- **grouping.py**：BUA/TDA 风格的分组（MDAV 式聚类 + 敏感/非敏感划分）
-- **run_experiments.py**：生成合成多层特征、加噪、跑分组与指标并汇总
+- `metrics.py`: Chi-square, K-L divergence, MMD, rMSE, and EMPA-style bias (simplified EM mixture weights).
+- `grouping.py`: BUA/TDA-style grouping (MDAV-like clustering with sensitive/non-sensitive partitions).
+- `run_experiments.py`: synthetic multi-layer features, privacy noise injection, grouping and metric comparison.
+- `bodhi_vlm_pipeline.py`: high-level API that combines BUA/TDA and EMPA into `assess_privacy_budget_from_features`, suitable for arbitrary backbone features.
+
+## Integration examples (YOLO / CLIP)
+
+The following scripts demonstrate how to plug Bodhi VLM into real models:
+
+- `yolo_bodhi_example.py`: hooks into ultralytics YOLOv8 backbone layers, constructs a simple sensitive mask, and calls `assess_privacy_budget_from_features`.
+- `clip_bodhi_example.py`: hooks into OpenAI CLIP ViT-B/32 transformer blocks to extract patch features, marks some images as sensitive, and calls `assess_privacy_budget_from_features`.
+
+To run the examples (after installing the optional dependencies):
+
+```bash
+cd src
+python yolo_bodhi_example.py
+python clip_bodhi_example.py
+```
+
