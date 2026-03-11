@@ -63,11 +63,7 @@ def empa_bias_and_weights(
     max_iter: int = 50,
     tol: float = 1e-4,
 ) -> Tuple[float, np.ndarray]:
-    """
-    EMPA-style: fit a mixture of components to (noised) sensitive features,
-    return bias (deviation from uniform/expected) and mixture weights.
-    Simplified: we use Gaussian mixture idea; 'bias' = ||weights - uniform||_2.
-    """
+    """EMPA-style mixture: return bias (L2 distance to uniform weights) and mixture weights."""
     from numpy import log, exp
     all_f = np.vstack([
         np.asarray(sensitive_features).reshape(-1, 1) if np.asarray(sensitive_features).ndim == 1 else sensitive_features,
@@ -79,20 +75,17 @@ def empa_bias_and_weights(
     if data.ndim == 1:
         data = data.reshape(-1, 1)
     n, d = data.shape
-    # Initialize: random means, unit variance
     rng = np.random.default_rng(42)
     means = data[rng.choice(n, size=n_components, replace=False)]
     var = np.ones(n_components) * (data.var() + 1e-8)
     weights = np.ones(n_components) / n_components
     for _ in range(max_iter):
-        # E-step: responsibility
         log_prob = np.zeros((n, n_components))
         for k in range(n_components):
             log_prob[:, k] = np.log(weights[k] + 1e-10) - 0.5 * np.sum((data - means[k]) ** 2, axis=1) / (var[k] + 1e-10)
         log_prob -= log_prob.max(axis=1, keepdims=True)
         resp = exp(log_prob)
         resp /= resp.sum(axis=1, keepdims=True)
-        # M-step
         nk = resp.sum(axis=0)
         weights = nk / n
         for k in range(n_components):
@@ -107,13 +100,20 @@ def compare_metrics(
     original: np.ndarray,
     noised: np.ndarray,
     bins: int = 20,
+    max_samples: int = 5000,
 ) -> dict:
     """
-    Compare original vs noised samples using Chi-square, K-L, MMD, rMSE.
-    original, noised: (N,) or (N, D) feature vectors.
+    Compare original vs noised samples using Chi-square, K-L, MMD, rMSE, wass1.
+    If sample count exceeds max_samples, subsample to avoid O(N^2) MMD.
     """
     orig = np.asarray(original).reshape(-1, 1) if np.asarray(original).ndim == 1 else original
     nois = np.asarray(noised).reshape(-1, 1) if np.asarray(noised).ndim == 1 else noised
+    n = len(orig)
+    if n > max_samples:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(n, size=max_samples, replace=False)
+        orig = orig[idx]
+        nois = nois[idx]
     range_lim = (min(orig.min(), nois.min()), max(orig.max(), nois.max()))
     if range_lim[1] - range_lim[0] < 1e-10:
         range_lim = (range_lim[0], range_lim[0] + 1.0)
@@ -123,4 +123,7 @@ def compare_metrics(
     kl = kl_divergence(h_nois, h_orig)
     mmd = mmd_rbf(orig, nois)
     rms = rmse(orig, nois)
-    return {"chi2": chi2, "kl": kl, "mmd": mmd, "rmse": rms}
+    orig_flat = np.asarray(original).flatten()
+    nois_flat = np.asarray(noised).flatten()
+    wass1 = float(stats.wasserstein_distance(orig_flat, nois_flat))
+    return {"chi2": chi2, "kl": kl, "mmd": mmd, "rmse": rms, "wass1": wass1}

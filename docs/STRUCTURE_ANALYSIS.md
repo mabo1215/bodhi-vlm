@@ -1,5 +1,12 @@
 # Bodhi VLM 论文结构分析（对照 FedAFD 2603.04890）
 
+> 代码结构简要说明（详见根目录 `README.md` 的 “Source layout” 小节）：  
+> - `src/utils/`：指标与分组等基础工具（metrics, grouping）。  
+> - `src/core/`：高层 pipeline（`assess_privacy_budget_from_features` 等）。  
+> - `src/experiments/`：synthetic / detector / vlm / aggregate / interpretability 实验逻辑。  
+> - `src/examples/`：YOLO / CLIP 示例脚本。  
+> - `src/main.py` + `src/config.json`：统一入口与配置；不再在 `src/` 根目录保留 `metrics.py` / `grouping.py` / `bodhi_vlm_pipeline.py` / `run_experiments.py` 等重复文件。
+
 ## 一、参考论文 FedAFD 的典型结构
 
 ### 1. Related Work（分类子节）

@@ -452,13 +452,13 @@ privacy budget.
 At this stage, the manuscript is clearly stronger than the previous version, and several major earlier concerns appear to have been addressed. The remaining unresolved issues are now more focused:
 
 \begin{enumerate}
-    \item EMPA still needs a cleaner and more defensible mathematical presentation.
-    \item The algorithms for BUA and TDA still need to be rewritten in a more reproducible, implementation-oriented form.
-    \item Symbol overloading should still be cleaned up.
-    \item The exact reference target for rMSE should still be defined explicitly for each table.
-    \item The synthetic EMPA bias behavior should still be interpreted more candidly as a structural signal rather than a direct budget estimator.
-    \item Statistical robustness reporting is still missing.
-    \item The VLM claim should remain carefully limited to visual encoders / vision towers under explicit perturbation settings.
+    \item \textbf{EMPA mathematical presentation:} addressed in the revised Section~III-F of \texttt{main.tex}, which now instantiates EMPA explicitly as a diagonal-Gaussian mixture fitted on sensitive features (Eq.~\eqref{eq:empa-mixture}) with well-defined parameters $\Theta_\epsilon,\Theta_\epsilon^{\mathrm{ref}}$ and discrepancy outputs BAS/Bias, and emphasizes that these are empirical feature-level signals rather than formal DP estimators.
+    \item \textbf{BUA/TDA algorithms:} addressed in the revised Algorithms~1 and~2 and the surrounding text in Section~III-D/E of \texttt{main.tex}, which now use explicit layer-wise feature sets, clearly stated inputs/outputs, concrete operations, and an additional reproducibility configuration table (Table~\ref{tab:repro_details}).
+    \item \textbf{Symbol overloading:} addressed in Section~III-B/C of \texttt{main.tex} by introducing $\{X_i\}$ and disjoint group notation $\mathcal{G}_i^{(s)},\mathcal{G}_i^{(n)}$, and by avoiding reuse of EMPA variables ($u,v$) inside BUA/TDA pseudocode.
+    \item \textbf{rMSE reference targets:} addressed in the updated metric descriptions in Section~IV-A.2 and in the captions of Tables~\ref{tab:rmse}, \ref{tab:vlmbuatda}, \ref{tab:vlmemparesults}, and \ref{tab:ablation} of \texttt{main.tex}, which now explicitly state the Laplace-based reference target under the same declared $\epsilon$.
+    \item \textbf{Synthetic EMPA bias interpretation:} addressed in Section~IV-B.4 and the Limitations section of \texttt{main.tex}, which now explicitly state that, on synthetic hierarchical data, the current EMPA bias behaves as a structural discrepancy signal more than a direct budget estimator.
+    \item \textbf{Statistical robustness reporting:} partially addressed in Section~IV-A.4 and the Limitations section of \texttt{main.tex}. In addition, the synthetic experiment in Section~IV-B.4 is now reported as mean$\pm$std over 5 seeds (Table~\ref{tab:script}) to demonstrate the multi-seed reporting protocol; full multi-seed reruns for all detector and VLM settings remain as future work/enhancements.
+    \item \textbf{VLM scope limitation:} addressed throughout the abstract, introduction, Section~III-G, Section~IV-B.5/B.6, the Interpretability section, and the Conclusion of \texttt{main.tex}, which now consistently frame the VLM experiments as vision-encoder-only under explicit perturbation mechanisms and avoid implying full multimodal pipeline assessment.
 \end{enumerate}
 
 If these remaining issues are addressed, the manuscript will become much more coherent and defensible from a reviewer's perspective.

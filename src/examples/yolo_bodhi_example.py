@@ -19,7 +19,7 @@ import torch
 
 from ultralytics import YOLO  # pip install ultralytics
 
-from bodhi_vlm_pipeline import assess_privacy_budget_from_features
+from core.pipeline import assess_privacy_budget_from_features
 
 
 def collect_yolo_backbone_features(model: YOLO, images: torch.Tensor) -> list[np.ndarray]:

@@ -1,0 +1,39 @@
+{
+  "out_dir": "results",
+  "experiments": {
+    "synthetic": {
+      "enabled": true,
+      "bins": 20,
+      "epsilon": [0.1, 0.01],
+      "seeds": [0, 1, 2, 3, 4],
+      "n_samples": 200,
+      "n_layers": 4
+    },
+    "detector": {
+      "enabled": false,
+      "seeds": [0, 1, 2, 3, 4],
+      "epsilons": [0.1, 0.01],
+      "num_images": 4,
+      "size": 640
+    },
+    "vlm": {
+      "enabled": false,
+      "seeds": [0, 1, 2, 3, 4],
+      "epsilons": [0.1, 0.01],
+      "num_images": 4,
+      "size": 224,
+      "models": ["CLIP", "BLIP"]
+    },
+    "aggregate": {
+      "enabled": true,
+      "detector_csv": "detector_metrics.csv",
+      "vlm_csv": "vlm_metrics.csv"
+    },
+    "interpretability": {
+      "enabled": false,
+      "n_samples": 200,
+      "n_layers": 4,
+      "epsilon": 0.1
+    }
+  }
+}

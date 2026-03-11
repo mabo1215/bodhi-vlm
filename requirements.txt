@@ -5,8 +5,14 @@ pandas>=1.3
 matplotlib>=3.4
 scikit-learn>=1.0
 
-# Optional (for integration examples, not required to reproduce paper figures):
-# torch>=2.0
-# ultralytics>=8.0
+# Optional: deep learning backends and detector/VLM integrations
+torch>=2.0
+torchvision>=0.15
+ultralytics>=8.0
+opencv-python>=4.5
+transformers>=4.30
+timm>=0.9
+
+# Optional: OpenAI CLIP example
 # git+https://github.com/openai/CLIP.git
 

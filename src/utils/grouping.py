@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 BUA/TDA-style grouping for Bodhi VLM experiments.
-Simplified: partition feature vectors into sensitive (G') and non-sensitive (G)
-using distance to sensitive centroid (NCP-like) and k-group size (MDAV-like).
+Partition feature vectors into sensitive (G') and non-sensitive (G)
+using MDAV-like clustering and sensitive labels.
 """
-
 import numpy as np
 from typing import List, Tuple
 
@@ -22,11 +21,9 @@ def mdav_like_cluster(features: np.ndarray, k: int, sensitive_mask: np.ndarray) 
     sensitive_mask = np.asarray(sensitive_mask).flatten()
     if len(sensitive_mask) != n:
         sensitive_mask = np.zeros(n, dtype=bool)
-    # Order by distance to global centroid
     centroid = features.mean(axis=0)
     dist = np.sum((features - centroid) ** 2, axis=1)
     order = np.argsort(dist)
-    # Form groups of size k
     n_groups = max(1, n // k)
     G_indices = []
     Gp_indices = []
@@ -61,13 +58,7 @@ def bua_style(
     sensitive_labels_per_layer: List[np.ndarray],
     k: int = 3,
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-    """
-    Bottom-up: from layer 0 (bottom) upward, partition each layer into G_i, G'_i
-    using mdav_like_cluster and sensitive labels.
-    layer_features: list of (N_i, D) arrays.
-    sensitive_labels_per_layer: list of (N_i,) bool arrays.
-    Returns (list of G indices per layer, list of G' indices per layer).
-    """
+    """Bottom-up: partition each layer into G_i, G'_i using mdav_like_cluster."""
     G_list, Gp_list = [], []
     for feat, sens in zip(layer_features, sensitive_labels_per_layer):
         G_idx, Gp_idx = mdav_like_cluster(feat, k, sens)
@@ -81,10 +72,7 @@ def tda_style(
     sensitive_labels_per_layer: List[np.ndarray],
     k: int = 3,
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-    """
-    Top-down: same as BUA but layers are processed from top (last) to bottom.
-    We still return per-layer G, G' in layer order 0..L-1.
-    """
+    """Top-down: same as BUA but layers processed from top to bottom."""
     rev_feat = list(reversed(layer_features))
     rev_sens = list(reversed(sensitive_labels_per_layer))
     G_list_rev, Gp_list_rev = [], []

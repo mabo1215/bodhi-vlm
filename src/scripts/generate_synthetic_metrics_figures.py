@@ -32,11 +32,13 @@ def main() -> None:
     env = os.environ.copy()
     python_exe = sys.executable or "python"
 
-    # 1) Run synthetic experiments: bodhi_vlm_metrics.csv +
-    #    bodhi_vlm_empa_bias.png + bodhi_vlm_metrics_vs_epsilon.png
+    # 1) Run synthetic experiments via unified entry:
+    #    bodhi_vlm_metrics.csv + bodhi_vlm_empa_bias.png + bodhi_vlm_metrics_vs_epsilon.png
     cmd_exp = [
         python_exe,
-        str(root / "src" / "run_experiments.py"),
+        str(root / "src" / "main.py"),
+        "--experiments",
+        "synthetic",
         "--out_dir",
         str(root / "paper" / "images"),
     ]

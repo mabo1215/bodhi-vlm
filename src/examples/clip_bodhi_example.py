@@ -18,7 +18,7 @@ import torch
 
 import clip  # type: ignore
 
-from bodhi_vlm_pipeline import assess_privacy_budget_from_features
+from core.pipeline import assess_privacy_budget_from_features
 
 
 def collect_clip_vit_layers(model, images: torch.Tensor) -> list[np.ndarray]:
