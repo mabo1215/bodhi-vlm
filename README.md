@@ -203,6 +203,6 @@ To produce the per-run CSVs used for paper tables (e.g. Table~\\ref{tab:rmse}):
 
 ---
 
-## License and contact
+## License
 
-See the repository and submodule repositories for license and contact information.
+This project is licensed under the Apache License, Version 2.0 (Apache 2.0).
