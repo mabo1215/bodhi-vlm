@@ -15,7 +15,8 @@
       "epsilons": [0.1, 0.01],
       "num_images": 10,
       "size": 640,
-      "test_images_dir": "data/test_images"
+      "test_images_dir": "data/test_images",
+      "run_component_ablation": true
     },
     "vlm": {
       "enabled": true,

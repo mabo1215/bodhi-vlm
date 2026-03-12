@@ -149,7 +149,7 @@ def _sensitive_masks(layer_features: list, has_sensitive: bool) -> list:
     return [np.ones(f.shape[0], dtype=bool) if has_sensitive else np.zeros(f.shape[0], dtype=bool) for f in layer_features]
 
 
-def _run_yolo(model_name: str, device: str, images: torch.Tensor, epsilon: float, seed: int):
+def _run_yolo(model_name: str, device: str, images: torch.Tensor, epsilon: float, seed: int, ablation_mode: str = "full"):
     from ultralytics import YOLO
     weights_path = ensure_yolo_weights("yolov8n.pt")
     model = YOLO(weights_path)
@@ -164,10 +164,12 @@ def _run_yolo(model_name: str, device: str, images: torch.Tensor, epsilon: float
     feats_orig = _subsample_layers(raw_orig, seed=seed)
     feats_noised = _subsample_layers(raw_noised, seed=seed)
     masks = _sensitive_masks(feats_noised, True)
-    return assess_privacy_budget_from_features(feats_orig, feats_noised, masks, epsilon=epsilon, bins=20, k_mdav=3)
+    return assess_privacy_budget_from_features(
+        feats_orig, feats_noised, masks, epsilon=epsilon, bins=20, k_mdav=3, ablation_mode=ablation_mode
+    )
 
 
-def _run_detr(device: str, images: torch.Tensor, epsilon: float, seed: int):
+def _run_detr(device: str, images: torch.Tensor, epsilon: float, seed: int, ablation_mode: str = "full"):
     import logging
     from transformers import DetrForObjectDetection, DetrImageProcessor
     cache = HF_CACHE
@@ -196,7 +198,9 @@ def _run_detr(device: str, images: torch.Tensor, epsilon: float, seed: int):
     images_noised = _add_noise_to_images(images, epsilon, seed)
     feats_noised = _subsample_layers(_collect_detr_features(model, processor, images_noised, device), seed=seed)
     masks = _sensitive_masks(feats_noised, True)
-    return assess_privacy_budget_from_features(feats_orig, feats_noised, masks, epsilon=epsilon, bins=20, k_mdav=3)
+    return assess_privacy_budget_from_features(
+        feats_orig, feats_noised, masks, epsilon=epsilon, bins=20, k_mdav=3, ablation_mode=ablation_mode
+    )
 
 
 def run(config: dict, out_dir: str) -> None:
@@ -256,3 +260,64 @@ def run(config: dict, out_dir: str) -> None:
         w.writeheader()
         w.writerows(rows)
     print(f"Wrote {csv_path}")
+
+    if config.get("run_component_ablation", False):
+        run_component_ablation(config, out_dir, device, images)
+
+
+def run_component_ablation(config: dict, out_dir: str, device: torch.device, images: torch.Tensor) -> None:
+    """Run component ablation (full, bua_only, tda_only, no_empa) with 5 seeds. Use DETR (no cv2); PPDPTS if config has ablation_model='PPDPTS'. Write ablation_component.csv and ablation_component_summary.csv."""
+    seeds = config.get("seeds", [0, 1, 2, 3, 4])
+    epsilons = config.get("epsilons", [0.1, 0.01])
+    modes = ["full", "bua_only", "tda_only", "no_empa"]
+    ablation_model = config.get("ablation_model", "DETR")  # DETR works without cv2
+    rows = []
+    for epsilon in epsilons:
+        for seed in seeds:
+            for mode in modes:
+                try:
+                    if ablation_model == "DETR":
+                        m = _run_detr(device, images, epsilon, seed, ablation_mode=mode)
+                    else:
+                        m = _run_yolo(ablation_model, device, images, epsilon, seed, ablation_mode=mode)
+                    rows.append({
+                        "epsilon": epsilon, "seed": seed, "config": mode,
+                        "deviation": m["deviation"], "rmse_budget": m["rmse_budget"],
+                    })
+                except Exception as e:
+                    print(f"  Ablation error {mode} eps={epsilon} seed={seed}: {e}")
+                    rows.append({"epsilon": epsilon, "seed": seed, "config": mode, "deviation": np.nan, "rmse_budget": np.nan})
+    csv_path = os.path.join(out_dir, "ablation_component.csv")
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=["epsilon", "seed", "config", "deviation", "rmse_budget"])
+        w.writeheader()
+        w.writerows(rows)
+    print(f"Wrote {csv_path}")
+
+    try:
+        from utils.metrics import confidence_interval_95
+    except ImportError:
+        confidence_interval_95 = None
+    summary_rows = []
+    for config_name in modes:
+        for eps in epsilons:
+            vals_dev = [r["deviation"] for r in rows if r["config"] == config_name and r["epsilon"] == eps and not np.isnan(r["deviation"])]
+            vals_rmse = [r["rmse_budget"] for r in rows if r["config"] == config_name and r["epsilon"] == eps and not np.isnan(r["rmse_budget"])]
+            n = len(vals_dev)
+            mean_dev = np.mean(vals_dev) if vals_dev else np.nan
+            std_dev = np.std(vals_dev, ddof=1) if n > 1 and vals_dev else 0.0
+            mean_rmse = np.mean(vals_rmse) if vals_rmse else np.nan
+            std_rmse = np.std(vals_rmse, ddof=1) if n > 1 and vals_rmse else 0.0
+            ci_dev = confidence_interval_95(np.array(vals_dev)) if confidence_interval_95 and len(vals_dev) >= 2 else (mean_dev, mean_dev)
+            ci_rmse = confidence_interval_95(np.array(vals_rmse)) if confidence_interval_95 and len(vals_rmse) >= 2 else (mean_rmse, mean_rmse)
+            summary_rows.append({
+                "config": config_name, "epsilon": eps,
+                "dev_mean": mean_dev, "dev_std": std_dev, "dev_ci_low": ci_dev[0], "dev_ci_high": ci_dev[1],
+                "rmse_mean": mean_rmse, "rmse_std": std_rmse, "rmse_ci_low": ci_rmse[0], "rmse_ci_high": ci_rmse[1],
+            })
+    summary_path = os.path.join(out_dir, "ablation_component_summary.csv")
+    with open(summary_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=["config", "epsilon", "dev_mean", "dev_std", "dev_ci_low", "dev_ci_high", "rmse_mean", "rmse_std", "rmse_ci_low", "rmse_ci_high"])
+        w.writeheader()
+        w.writerows(summary_rows)
+    print(f"Wrote {summary_path}")
