@@ -20,9 +20,6 @@ src/models/*
 *.pt
 *.pth
 
-# Test images (optional; run scripts/download_detector_test_images.py)
-data/test_images/
-
 
 paper/*.aux
 paper/*.bbl
