@@ -8,8 +8,6 @@ This repository contains:
 - **Example integrations**: YOLO (ultralytics) and CLIP (OpenAI) with hooks for layer-wise features.
 - **Paper submodule** (optional): LaTeX manuscript and figures in `paper/` (Overleaf-backed repo).
 
-All instructions below are in English.
-
 ---
 
 ## Repository layout
@@ -48,8 +46,6 @@ python main.py
 
 This uses `src/config.json` and writes CSVs/figures to `results/`. All models (e.g. `*.pt`, Hugging Face, torch.hub) are downloaded under **`src/models/`** (subdirs: `huggingface/`, `torch_hub/`, `weights/`). The script also downloads test images to **`data/test_images/`** so detector runs (YOLO/DETR) can produce real detections; if the download fails, the detector falls back to random tensors.
 
-**Hugging Face token (gated models like BLIP):** If you see “is not a valid model identifier” or permission errors, create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) and put it in a **`.env`** file in the repo root (`.env` is gitignored). Either run `python src/scripts/setup_hf_token.py` (from repo root) and paste the token, or create `.env` manually with one line: `HF_TOKEN=hf_xxxxxxxx...`.
-
 ---
 
 ## Source layout
@@ -72,45 +68,6 @@ The `src/` directory is organized as follows:
 | `examples/` | Optional example scripts (YOLO / CLIP integrations). |
 | `scripts/` | Backwards-compatible CLI wrappers that call functions in `experiments/`. |
 | `metrics.py`, `grouping.py`, `bodhi_vlm_pipeline.py` | Thin compatibility shims that re-export from `utils/` and `core/`. |
-
-## Clone (including the paper submodule)
-
-To clone and fetch the paper submodule in one step:
-
-```bash
-git clone --recurse-submodules https://github.com/<your-org>/bodhi-vlm.git
-cd bodhi-vlm
-```
-
-If you already cloned without submodules:
-
-```bash
-git submodule update --init --recursive
-```
-
-To pull the main repo and update submodules together:
-
-```bash
-git pull --recurse-submodules
-```
-
-Or set once so that `git pull` always updates submodules:
-
-```bash
-git config submodule.recurse true
-```
-
-**Building the paper (pdflatex + ref.bib):** The manuscript uses `\bibliography{ref}`, so you need `paper/ref.bib` and must run **bibtex** between pdflatex runs:
-
-```bash
-cd paper
-pdflatex main
-bibtex main
-pdflatex main
-pdflatex main
-```
-
-Or from the repo root: `bash paper/build_paper.sh` (Unix) or `paper\build_paper.bat` (Windows). The first pdflatex pass writes citation keys to `main.aux`; bibtex reads `ref.bib` and `main.aux` and produces `main.bbl`; the next two pdflatex passes resolve references and produce `main.pdf`.
 
 ---
 
