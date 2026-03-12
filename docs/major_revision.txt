@@ -1,7 +1,9 @@
-Bodhi VLM 大修主要问题与修改进度（基于 docs/update_revision_suggestion.tex 新一轮审稿意见）
+Bodhi VLM 大修主要问题与修改进度
 ====================================================================
+来源：(1) docs/update_revision_suggestion.tex（上一轮）；(2) docs/Bodhi_VLM_TNNLS_review.tex（新一轮 TNNLS 审稿）。
+下面每条对应审稿人 Major Revision 要点，概括问题、当前进度，以及已做修改或未改原因。**标注“已修改”的条目均已在 paper/main.tex 中完成对应修改。**
 
-下面每条对应审稿人 Major Revision 要点，概括问题、当前进度，以及已做修改或未改原因。修订具体内容见 docs/paper_revision_guide.md。**本次已对 paper/main.tex 做了一轮落实，以下标注“已修改”的条目均已在正文中完成对应修改。**
+======== 上一轮审稿 (update_revision_suggestion.tex) ========
 
 --------------------------------------------------------------------
 1）收窄中心主张（标题、摘要、引言、结论）
@@ -96,3 +98,79 @@ Bodhi VLM 大修主要问题与修改进度（基于 docs/update_revision_sugges
 
 --------------------------------------------------------------------
 说明：上述“已修改”条目均已在 paper/main.tex 中完成对应增补或替换。需补充实验或重绘图的条目（9、10、13）保持“部分修改”，待有脚本与算力后再更新表格/图并同步更新本 txt。
+
+======== 新一轮审稿 (docs/Bodhi_VLM_TNNLS_review.tex) ========
+
+--------------------------------------------------------------------
+N1）中心估计量不可辨识（central target not identifiable）
+--------------------------------------------------------------------
+- 概括：审稿人指出 BAS_ε 未证明随 ε 单调或可辨识；文中 IV-B4 已显示 EMPA bias 对 ε 几乎不变，削弱“预算对齐”解释。
+- 进度：已修改（Addressed）。
+- 说明：标题与摘要已收窄为“reference-perturbation auditing”和“reference-relative”；问题定义明确输出为 reference-perturbation discrepancy score，且不估计有效 ε。IV-B4 增加 \paragraph{Diagnostic: why EMPA bias is approximately constant across ε}，将 bias 明确解释为结构差异信号；分解实验（固定分组调噪声 vs 固定噪声调分组）留 future work。
+
+--------------------------------------------------------------------
+N2）参考机制由评估者定义，削弱“预算对齐”含义（reference mechanism evaluator-defined）
+--------------------------------------------------------------------
+- 概括：与参考分布比较是“循环设定”，只支持相对该参考族的相似性，不支持一般意义上的“符合声明预算”。
+- 进度：已修改（Addressed）。
+- 说明：摘要与引言开头即强调 assessment is reference-relative；问题定义中显式加入输入 $\mathcal{M}_{\mathrm{ref}}(\epsilon;\eta)$ 与“若真实机制与 M_ref 不同，分数反映机制失配”。符号表增加 $\mathcal{M}_{\mathrm{ref}}$；EMPA 小节写明 reference-relative 及 mechanism mismatch。机制失配实验（如 observed Gaussian vs reference Laplace）留 future work。
+
+--------------------------------------------------------------------
+N3）EM 的数学角色弱、混合模型选择任意（mathematical role of EM, mixture arbitrary）
+--------------------------------------------------------------------
+- 概括：未论证为何对角高斯混合是“正确”潜变量模型；K=4、对角协方差、ψ 形式等缺少推导或消融。
+- 进度：已修改（Addressed）。
+- 说明：EMPA 中补充标准 E-step（γ_{jk}）与 M-step（N_k, λ_k^{new}, μ_k^{new}, σ_k^2^{new}）；显式定义 ψ(Θ) 为 [λ, μ, σ²] 的拼接向量，并写清 $\mathrm{BAS}_\epsilon = \|\psi(\Theta_\epsilon)-\psi(\Theta_\epsilon^{\mathrm{ref}})\|_2$。对 K、对角/全协方差、初始化与层池化的消融仍为 future work。
+
+--------------------------------------------------------------------
+N4）敏感特征划分未经验证（sensitive partition not validated）
+--------------------------------------------------------------------
+- 概括：按 90 分位阈值构造敏感组，未用 IoU/pointing game/删除曲线等验证高分区是否对应真实敏感区域。
+- 进度：未修改（Not addressed）。
+- 说明：未新增定位评估或阈值敏感性实验。Limitations 中已有 (b) partition dependence 与 (e) 敏感集人为定义；定量定位指标（IoU、τ 敏感性）留后续工作，因需标注或额外实验设计。
+
+--------------------------------------------------------------------
+N5）BUA 与 TDA 差异证据弱（BUA vs TDA empirically similar）
+--------------------------------------------------------------------
+- 概括：两者在实验中表现非常接近，合成数据上完全一致；审稿人要求理论对比、Π 的严格定义或能体现差异的对照实验。
+- 进度：部分修改（Partially addressed）。
+- 说明：文中已有多处说明 BUA/TDA comparable、BUA 略对噪声更敏感。未补充：Π_{i→i-1} 的逐 backbone 严格规格、或“仅高层/仅低层注入噪声”等预期会分化的对照实验。原因：需针对不同架构设计映射与实验，暂保留为 future work。
+
+--------------------------------------------------------------------
+N6）实验协议不足以支撑主主张（experimental protocol weak）
+--------------------------------------------------------------------
+- 概括：单次运行、零方差报告、无学习/校准/假设检验基线、未验证能否正确排序候选 ε。
+- 进度：部分修改（Partially addressed）。
+- 说明：与上一轮一致：合成实验 5 seeds mean±std 已报；Statistical reporting 与 Reproducibility 表已区分单次与多种子；MomentReg/NoiseMLE/Wass 等基线为 future work。未做：全表多种子、置信区间、budget ranking（Pr(rank(ε̂)=rank(ε))）或 out-of-family 测试。原因：算力与时间限制。
+
+--------------------------------------------------------------------
+N7）与 VLM 隐私方法的比较方法上不公平（Table VI not methodologically fair）
+--------------------------------------------------------------------
+- 概括：ViP/DP-Cap/DP-MTV/VisShield 解决的是不同任务，Table VI 不应呈现为性能比较。
+- 进度：已修改（Addressed）。
+- 说明：Table VI 的 caption 已改为 “Positioning table: scope and capability comparison... This is not a direct quantitative performance comparison”；结论中改为 “We contrasted scope with ... (positioning only, not a quantitative comparison)”。
+
+--------------------------------------------------------------------
+N8）主张与证据不匹配（claim–evidence mismatch）
+--------------------------------------------------------------------
+- 概括：标题/摘要/引言仍使用“budget assessment”“aligns with declared budget”等强于证据的表述。
+- 进度：已修改（Addressed）。
+- 说明：标题已改为 “Feature-Level Reference-Perturbation Auditing for Vision Backbones and VLM Vision Encoders via Bottom-Up and Top-Down Feature Search”；摘要与结论统一为 reference-relative、reference-perturbation discrepancy score，并明确不估计有效 ε、不提供 DP 认证。Limitations 改为 (a)–(f)，将 reference-relative 与 partition dependence 置于 (a)(b)。
+
+--------------------------------------------------------------------
+说明：新一轮审稿中 N1、N2、N3、N7、N8 已在本次修订中落实。N4、N5、N6 已通过代码补充实验支持如下（运行后请根据结果更新本进度）：
+
+【N6 - 全表多种子、置信区间、budget ranking、out-of-family】
+- 已做：utils/metrics.py 增加 confidence_interval_95、budget_ranking_spearman、budget_ranking_correct_two、budget_ranking_accuracy_from_pairs、empa_reference_discrepancy。aggregate.py 在聚合 detector/vlm CSV 时写出 detector_summary_with_ci.csv、vlm_summary_with_ci.csv（含 mean±std 与 95% CI）以及 detector_budget_ranking.csv、vlm_budget_ranking.csv（每 model 的 budget_ranking_accuracy）。synthetic 已支持多种子、写出 bodhi_vlm_budget_ranking.txt、bodhi_vlm_ci_per_epsilon.csv；新增 run_out_of_family_experiment，写出 out_of_family_discrepancy.csv（obs=Gaussian ref=Laplace 与 obs=Laplace ref=Gaussian）。
+- 运行：保持 config.json 中 detector/vlm 的 seeds: [0,1,2,3,4]，然后执行 run_all.sh（或先 synthetic 再 detector 再 vlm 再 aggregate）。聚合阶段会自动生成 *_summary_with_ci.csv 与 *_budget_ranking.csv。
+- 你需要提供：无需额外输入；若希望更多种子或更多 ε，在 config.json 中修改 seeds 与 epsilons 即可。
+
+【N5 - 跨层映射 Π 与 BUA/TDA 分化实验】
+- 已做：utils/grouping.py 增加 map_indices_layer_i_to_im1（按 (H,W) 做尺度映射）、tda_style_with_mapping(layer_shapes=...)，供 YOLO/DETR/CLIP/BLIP 在已知每层 (H,W) 时使用。synthetic 中新增 run_bua_tda_divergence_experiment：仅在高层（layers 2,3）加噪 vs 仅在低层（0,1）加噪，写出 bua_tda_divergence_noise_placement.csv（比较 BUA 与 TDA 的 EMPA bias 是否分化）。
+- 运行：run_all.sh 会顺带执行该实验；或单独运行 synthetic 实验即可生成 bua_tda_divergence_noise_placement.csv。
+- 你需要提供：无需；若要在真实 detector/VLM 中使用 Π，需在提取特征时一并返回每层 (H,W) 并传入 tda_style_with_mapping（当前 detector/vlm 脚本尚未传 layer_shapes，可后续在特征提取处加 shape 并调用）。
+
+【N4 - 阈值敏感性与定位 IoU】
+- 已做：synthetic 中新增 run_threshold_sensitivity_experiment：对“敏感分数”做 80/85/90/95 分位阈值，写出 threshold_sensitivity.csv 与 threshold_sensitivity_summary.csv。新增脚本 src/scripts/run_detector_localization.py：用 YOLO 检测框得到 GT mask，用特征 L2 范数 90 分位得到预测敏感 mask，计算 IoU，写出 results/localization_iou.csv。
+- 运行：run_all.sh 会跑 threshold_sensitivity。定位脚本需单独执行：从仓库根目录 PYTHONPATH=src python src/scripts/run_detector_localization.py --num_images 5 --out_dir results（需 data/test_images 下有图或接受随机图）。
+- 你需要提供：若用真实图像做定位，请提供 data/test_images/ 下的 test_01.jpg … 或任意 jpg/png；否则脚本会用随机张量，IoU 仅作占位。

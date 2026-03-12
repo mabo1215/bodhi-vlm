@@ -181,3 +181,79 @@ def noise_mle_rmse_with_true(
             best_ll = log_lik
             best_eps = ep
     return float(np.sqrt((best_eps - true_epsilon) ** 2))
+
+
+def confidence_interval_95(samples: np.ndarray, axis: Optional[int] = None) -> Tuple[float, float]:
+    """95% CI for mean: (mean - 1.96*se, mean + 1.96*se). samples: (n,) or (n, ...)."""
+    s = np.asarray(samples)
+    n = s.shape[0] if axis is None else s.shape[axis]
+    if n < 2:
+        m = np.mean(s, axis=axis)
+        return m, m
+    mean = np.mean(s, axis=axis)
+    std = np.std(s, axis=axis, ddof=1)
+    se = std / np.sqrt(n)
+    z = 1.96
+    return mean - z * se, mean + z * se
+
+
+def budget_ranking_spearman(epsilons: np.ndarray, scores: np.ndarray) -> float:
+    """Spearman correlation between epsilon order and score order. Higher = better ranking."""
+    from scipy.stats import spearmanr
+    epsilons = np.asarray(epsilons).flatten()
+    scores = np.asarray(scores).flatten()
+    if len(epsilons) != len(scores) or len(epsilons) < 2:
+        return float("nan")
+    r, _ = spearmanr(epsilons, scores)
+    return float(r) if not np.isnan(r) else float("nan")
+
+
+def budget_ranking_correct_two(eps_small: float, eps_large: float, score_small: float, score_large: float, lower_is_better: bool) -> bool:
+    """For two epsilons: True if ordering of scores matches expected (larger epsilon -> larger score if not lower_is_better)."""
+    if lower_is_better:
+        # e.g. rMSE: we expect larger epsilon -> smaller rMSE; so for eps_small < eps_large we want score_small >= score_large
+        return score_small >= score_large
+    return score_small <= score_large
+
+
+def budget_ranking_accuracy_from_pairs(
+    pairs_per_seed: list,
+    lower_is_better: bool = False,
+) -> float:
+    """
+    pairs_per_seed: list of lists. Each inner list is [(eps1, score1), (eps2, score2), ...] for one seed.
+    Returns fraction of seeds where rank(scores) matches rank(epsilons).
+    """
+    if not pairs_per_seed:
+        return float("nan")
+    correct = 0
+    for pairs in pairs_per_seed:
+        if len(pairs) < 2:
+            continue
+        eps = np.array([p[0] for p in pairs])
+        sc = np.array([p[1] for p in pairs])
+        order_eps = np.argsort(eps)
+        order_sc = np.argsort(sc) if not lower_is_better else np.argsort(-sc)
+        if np.array_equal(order_eps, order_sc):
+            correct += 1
+    n = sum(1 for p in pairs_per_seed if len(p) >= 2)
+    return correct / n if n else float("nan")
+
+
+def empa_fit_weights(sensitive_features: np.ndarray, non_sensitive_features: np.ndarray, n_components: int = 5, max_iter: int = 50, tol: float = 1e-4) -> np.ndarray:
+    """Fit EMPA mixture on (sensitive, non_sensitive) and return mixture weight vector only."""
+    _, weights = empa_bias_and_weights(sensitive_features, non_sensitive_features, n_components=n_components, max_iter=max_iter, tol=tol)
+    return weights
+
+
+def empa_reference_discrepancy(
+    sens_obs: np.ndarray,
+    nons_obs: np.ndarray,
+    sens_ref: np.ndarray,
+    nons_ref: np.ndarray,
+    n_components: int = 5,
+) -> float:
+    """L2 distance between fitted mixture weight vectors: observed vs reference (e.g. out-of-family)."""
+    w_obs = empa_fit_weights(sens_obs, nons_obs, n_components=n_components)
+    w_ref = empa_fit_weights(sens_ref, nons_ref, n_components=n_components)
+    return float(np.sqrt(np.sum((w_obs - w_ref) ** 2)))

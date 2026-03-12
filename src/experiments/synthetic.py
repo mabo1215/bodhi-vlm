@@ -5,11 +5,15 @@ import numpy as np
 from utils.metrics import (
     compare_metrics,
     empa_bias_and_weights,
+    empa_reference_discrepancy,
     histogram_from_samples,
     rmse,
     moment_features,
     moment_reg_rmse,
     noise_mle_rmse_with_true,
+    confidence_interval_95,
+    budget_ranking_spearman,
+    budget_ranking_accuracy_from_pairs,
 )
 from utils.grouping import bua_style, tda_style
 
@@ -36,13 +40,21 @@ def add_privacy_noise(
     epsilon: float = 0.1,
     scale: float = 1.0,
     seed: int = 43,
+    family: str = "gaussian",
 ) -> list:
-    sigma = scale / (epsilon + 1e-8)
+    """Add noise to sensitive positions. family: 'gaussian' or 'laplace'."""
+    c = scale / (epsilon + 1e-8)
     rng = np.random.default_rng(seed)
     noised = []
     for feat, sens in zip(layers, sensitive_per_layer):
         f = np.array(feat, dtype=float)
-        noise = rng.standard_normal(f.shape) * sigma
+        if family == "laplace":
+            # Laplace(0, b), b = c
+            u = rng.uniform(1e-10, 1 - 1e-10, f.shape)
+            noise = np.where(u < 0.5, c * np.log(2 * u), -c * np.log(2 * (1 - u)))
+        else:
+            sigma = c
+            noise = rng.standard_normal(f.shape) * sigma
         mask = np.broadcast_to(sens.reshape(-1, 1), f.shape)
         noised.append(f + noise * mask)
     return noised
@@ -184,6 +196,26 @@ def run(config: dict, out_dir: str) -> None:
             empa_bias_tda_mean=("empa_bias_tda", "mean"), empa_bias_tda_std=("empa_bias_tda", "std"),
         ).reset_index()
         summary.to_csv(os.path.join(out_dir, "bodhi_vlm_metrics_summary.csv"), index=False)
+        # Budget ranking: for each seed, (eps, score) pairs; fraction of seeds with correct rank
+        pairs_per_seed = []
+        for s in seeds:
+            pairs = [(r["epsilon"], r["empa_bias_bua"]) for r in rows if r["seed"] == s]
+            pairs_per_seed.append(pairs)
+        br_acc = budget_ranking_accuracy_from_pairs(pairs_per_seed, lower_is_better=False)
+        with open(os.path.join(out_dir, "bodhi_vlm_budget_ranking.txt"), "w") as f:
+            f.write(f"budget_ranking_accuracy_empa_bua,{br_acc}\n")
+        # 95% CI for each epsilon (empa_bias_bua)
+        try:
+            ci_rows = []
+            for eps in epsilons:
+                vals = [r["empa_bias_bua"] for r in rows if r["epsilon"] == eps]
+                if len(vals) >= 2:
+                    lo, hi = confidence_interval_95(np.array(vals))
+                    ci_rows.append({"epsilon": eps, "empa_bua_ci_low": lo, "empa_bua_ci_high": hi})
+            if ci_rows:
+                pd.DataFrame(ci_rows).to_csv(os.path.join(out_dir, "bodhi_vlm_ci_per_epsilon.csv"), index=False)
+        except Exception:
+            pass
     except ImportError:
         csv_path = os.path.join(out_dir, "bodhi_vlm_metrics.csv")
         with open(csv_path, "w") as f:
@@ -245,6 +277,12 @@ def run(config: dict, out_dir: str) -> None:
     # Decomposition and ablation (optional, same out_dir)
     run_decomposition_experiment(config, out_dir)
     run_ablation_experiment(config, out_dir)
+    # Out-of-family: observed noise family != reference family
+    run_out_of_family_experiment(config, out_dir)
+    # N5: noise only on top vs bottom half of layers to see BUA vs TDA diverge
+    run_bua_tda_divergence_experiment(config, out_dir)
+    # N4: threshold sensitivity (percentile 80, 85, 90, 95)
+    run_threshold_sensitivity_experiment(config, out_dir)
 
 
 def run_decomposition_experiment(config: dict, out_dir: str) -> None:
@@ -316,6 +354,162 @@ def run_decomposition_experiment(config: dict, out_dir: str) -> None:
         fig.savefig(os.path.join(out_dir, "decomposition_fixed_partition_bias_vs_epsilon.png"), dpi=150, bbox_inches="tight")
         plt.close()
         print("Saved: decomposition_fixed_partition_bias_vs_epsilon.png")
+    except ImportError:
+        pass
+
+
+def run_out_of_family_experiment(config: dict, out_dir: str) -> None:
+    """
+    Out-of-family test: observed noise from family A, reference from family B.
+    Report EMPA reference discrepancy (L2 between fitted weights) for (obs=Gaussian, ref=Laplace) and (obs=Laplace, ref=Gaussian).
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    seeds = config.get("seeds") or [config.get("seed", 42)]
+    epsilons = config.get("epsilon", [0.1, 0.01])
+    n_samples = config.get("n_samples", 200)
+    n_layers = config.get("n_layers", 4)
+    k_mdav = 3
+    n_components = 5
+
+    rows = []
+    for eps in epsilons:
+        for s in seeds:
+            layers_orig, sensitive_per_layer = generate_synthetic_layers(
+                n_samples=n_samples, n_layers=n_layers, sensitive_ratio=0.3, seed=s
+            )
+            layers_g = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=eps, seed=s + 1, family="gaussian")
+            layers_l = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=eps, seed=s + 2, family="laplace")
+            # Partition from observed (Gaussian)
+            G_bua, Gp_bua = bua_style(layers_g, sensitive_per_layer, k=k_mdav)
+            sens_obs_g = np.concatenate([layers_g[i][Gp_bua[i]] for i in range(len(Gp_bua)) if len(Gp_bua[i]) > 0])
+            nons_obs_g = np.concatenate([layers_g[i][G_bua[i]] for i in range(len(G_bua)) if len(G_bua[i]) > 0])
+            sens_ref_l = np.concatenate([layers_l[i][Gp_bua[i]] for i in range(len(Gp_bua)) if len(Gp_bua[i]) > 0])
+            nons_ref_l = np.concatenate([layers_l[i][G_bua[i]] for i in range(len(G_bua)) if len(G_bua[i]) > 0])
+            if sens_obs_g.size == 0:
+                sens_obs_g = np.zeros((1, layers_g[0].shape[1]))
+            if nons_obs_g.size == 0:
+                nons_obs_g = np.zeros((1, layers_g[0].shape[1]))
+            if sens_ref_l.size == 0:
+                sens_ref_l = np.zeros((1, layers_l[0].shape[1]))
+            if nons_ref_l.size == 0:
+                nons_ref_l = np.zeros((1, layers_l[0].shape[1]))
+            d_obsG_refL = empa_reference_discrepancy(sens_obs_g, nons_obs_g, sens_ref_l, nons_ref_l, n_components=n_components)
+            # Same with observed=Laplace, reference=Gaussian
+            G_bua_l, Gp_bua_l = bua_style(layers_l, sensitive_per_layer, k=k_mdav)
+            sens_obs_l = np.concatenate([layers_l[i][Gp_bua_l[i]] for i in range(len(Gp_bua_l)) if len(Gp_bua_l[i]) > 0])
+            nons_obs_l = np.concatenate([layers_l[i][G_bua_l[i]] for i in range(len(G_bua_l)) if len(G_bua_l[i]) > 0])
+            sens_ref_g = np.concatenate([layers_g[i][Gp_bua_l[i]] for i in range(len(Gp_bua_l)) if len(Gp_bua_l[i]) > 0])
+            nons_ref_g = np.concatenate([layers_g[i][G_bua_l[i]] for i in range(len(G_bua_l)) if len(G_bua_l[i]) > 0])
+            if sens_obs_l.size == 0:
+                sens_obs_l = np.zeros((1, layers_l[0].shape[1]))
+            if nons_obs_l.size == 0:
+                nons_obs_l = np.zeros((1, layers_l[0].shape[1]))
+            if sens_ref_g.size == 0:
+                sens_ref_g = np.zeros((1, layers_g[0].shape[1]))
+            if nons_ref_g.size == 0:
+                nons_ref_g = np.zeros((1, layers_g[0].shape[1]))
+            d_obsL_refG = empa_reference_discrepancy(sens_obs_l, nons_obs_l, sens_ref_g, nons_ref_g, n_components=n_components)
+            rows.append({
+                "epsilon": eps, "seed": s,
+                "discrepancy_obsGaussian_refLaplace": d_obsG_refL,
+                "discrepancy_obsLaplace_refGaussian": d_obsL_refG,
+            })
+    try:
+        import pandas as pd
+        df = pd.DataFrame(rows)
+        df.to_csv(os.path.join(out_dir, "out_of_family_discrepancy.csv"), index=False)
+        print("Saved: out_of_family_discrepancy.csv (obs/reference family mismatch)")
+    except ImportError:
+        with open(os.path.join(out_dir, "out_of_family_discrepancy.csv"), "w") as f:
+            f.write("epsilon,seed,discrepancy_obsGaussian_refLaplace,discrepancy_obsLaplace_refGaussian\n")
+            for r in rows:
+                f.write(f"{r['epsilon']},{r['seed']},{r['discrepancy_obsGaussian_refLaplace']},{r['discrepancy_obsLaplace_refGaussian']}\n")
+
+
+def run_bua_tda_divergence_experiment(config: dict, out_dir: str) -> None:
+    """
+    N5: Noise only on top half vs bottom half of layers to see if BUA and TDA diverge.
+    - late_only: noise only on layers 2,3 (top); early_only: noise only on layers 0,1 (bottom).
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    seeds = config.get("seeds") or [config.get("seed", 42)]
+    n_samples = config.get("n_samples", 200)
+    n_layers = 4
+    eps = 0.1
+    bins = config.get("bins", 20)
+    rows = []
+    for s in seeds:
+        layers_orig, sensitive_per_layer = generate_synthetic_layers(
+            n_samples=n_samples, n_layers=n_layers, sensitive_ratio=0.3, seed=s
+        )
+        # Late-only noise (top layers 2,3)
+        layers_late = [layers_orig[i].copy() for i in range(n_layers)]
+        for i in (2, 3):
+            sigma = 1.0 / (eps + 1e-8)
+            rng = np.random.default_rng(s + 1)
+            mask = np.broadcast_to(sensitive_per_layer[i].reshape(-1, 1), layers_late[i].shape)
+            layers_late[i] = layers_late[i] + rng.standard_normal(layers_late[i].shape) * sigma * mask
+        res_late = _run_one_config(layers_orig, layers_late, sensitive_per_layer, bins=bins, seed_random=s + 100)
+        # Early-only noise (bottom layers 0,1)
+        layers_early = [layers_orig[i].copy() for i in range(n_layers)]
+        for i in (0, 1):
+            sigma = 1.0 / (eps + 1e-8)
+            rng = np.random.default_rng(s + 2)
+            mask = np.broadcast_to(sensitive_per_layer[i].reshape(-1, 1), layers_early[i].shape)
+            layers_early[i] = layers_early[i] + rng.standard_normal(layers_early[i].shape) * sigma * mask
+        res_early = _run_one_config(layers_orig, layers_early, sensitive_per_layer, bins=bins, seed_random=s + 101)
+        rows.append({
+            "seed": s, "regime": "noise_late_only",
+            "empa_bias_bua": res_late["empa_bias_bua"], "empa_bias_tda": res_late["empa_bias_tda"],
+        })
+        rows.append({
+            "seed": s, "regime": "noise_early_only",
+            "empa_bias_bua": res_early["empa_bias_bua"], "empa_bias_tda": res_early["empa_bias_tda"],
+        })
+    try:
+        import pandas as pd
+        pd.DataFrame(rows).to_csv(os.path.join(out_dir, "bua_tda_divergence_noise_placement.csv"), index=False)
+        print("Saved: bua_tda_divergence_noise_placement.csv (N5: noise late-only vs early-only)")
+    except ImportError:
+        pass
+
+
+def run_threshold_sensitivity_experiment(config: dict, out_dir: str) -> None:
+    """
+    N4: Sensitivity to threshold percentile. Simulate score = oracle + small noise, threshold at 80, 85, 90, 95.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    seeds = config.get("seeds") or [config.get("seed", 42)]
+    n_samples = config.get("n_samples", 200)
+    n_layers = config.get("n_layers", 4)
+    eps = 0.1
+    percentiles = [0.80, 0.85, 0.90, 0.95]
+    rows = []
+    for s in seeds:
+        layers_orig, sensitive_per_layer = generate_synthetic_layers(
+            n_samples=n_samples, n_layers=n_layers, sensitive_ratio=0.3, seed=s
+        )
+        layers_noised = add_privacy_noise(layers_orig, sensitive_per_layer, epsilon=eps, seed=s + 1)
+        for q in percentiles:
+            # Simulate score: 1 for sensitive, 0 for non-sensitive, plus small noise; then threshold at q
+            rng = np.random.default_rng(s + int(q * 100))
+            sens_per_layer_q = []
+            for sens in sensitive_per_layer:
+                score = sens.astype(float) + rng.uniform(-0.1, 0.1, sens.shape)
+                thresh = np.percentile(score, q * 100)
+                sens_per_layer_q.append(score >= thresh)
+            res = _run_one_config(layers_orig, layers_noised, sens_per_layer_q, bins=20, seed_random=s + 200)
+            rows.append({"seed": s, "percentile": q, "empa_bias_bua": res["empa_bias_bua"], "empa_bias_tda": res["empa_bias_tda"]})
+    try:
+        import pandas as pd
+        df = pd.DataFrame(rows)
+        df.to_csv(os.path.join(out_dir, "threshold_sensitivity.csv"), index=False)
+        summary = df.groupby("percentile").agg(
+            empa_bua_mean=("empa_bias_bua", "mean"), empa_bua_std=("empa_bias_bua", "std"),
+            empa_tda_mean=("empa_bias_tda", "mean"), empa_tda_std=("empa_bias_tda", "std"),
+        ).reset_index()
+        summary.to_csv(os.path.join(out_dir, "threshold_sensitivity_summary.csv"), index=False)
+        print("Saved: threshold_sensitivity.csv, threshold_sensitivity_summary.csv (N4: tau in {80,85,90,95}%)")
     except ImportError:
         pass
 
