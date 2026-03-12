@@ -115,11 +115,16 @@ def _load_test_images(test_images_dir: str, num_images: int, size: int, device: 
     abs_dir = test_images_dir if os.path.isabs(test_images_dir) else os.path.join(_PROJECT_ROOT, test_images_dir)
     if not os.path.isdir(abs_dir):
         return None
-    exts = ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp")
-    paths = []
-    for ext in exts:
-        paths.extend(glob.glob(os.path.join(abs_dir, ext)))
-    paths = sorted(paths)[:num_images]
+    # Prefer test_01.jpg ... test_NN.jpg if all present (from copy_test_images_as_named.py)
+    preferred = [os.path.join(abs_dir, f"test_{i:02d}.jpg") for i in range(1, num_images + 1)]
+    if all(os.path.isfile(p) for p in preferred):
+        paths = preferred
+    else:
+        exts = ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp")
+        paths = []
+        for ext in exts:
+            paths.extend(glob.glob(os.path.join(abs_dir, ext)))
+        paths = sorted(paths)[:num_images]
     if len(paths) < num_images:
         return None
     try:

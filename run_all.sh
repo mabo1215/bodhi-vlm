@@ -15,15 +15,12 @@ else
 fi
 
 export PYTHONPATH="${PWD}/src:${PYTHONPATH:-}"
-# Download test images for detector (YOLO/DETR) so runs yield real detections
-if [ -f "src/scripts/download_detector_test_images.py" ]; then
-  "$PYTHON" src/scripts/download_detector_test_images.py 6 || true
-fi
+# Use existing images in data/test_images/ (no auto-download). To fetch images manually: python src/scripts/download_detector_test_images.py 6
 "$PYTHON" src/main.py --config src/config.json
 
-# Copy synthetic and decomposition figures into paper for inclusion
+# Copy figures used by the paper (synthetic + decomposition + interpretability)
 if [ -d "results" ] && [ -d "paper/images" ]; then
-  for f in bodhi_vlm_empa_bias.png bodhi_vlm_metrics_vs_epsilon.png decomposition_fixed_partition_bias_vs_epsilon.png; do
+  for f in bodhi_vlm_empa_bias.png bodhi_vlm_metrics_vs_epsilon.png decomposition_fixed_partition_bias_vs_epsilon.png bodhi_vlm_sensitive_dist.png bodhi_vlm_tsne.png; do
     [ -f "results/$f" ] && cp "results/$f" "paper/images/$f" && echo "Copied results/$f -> paper/images/"
   done
 fi

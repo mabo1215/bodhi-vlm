@@ -13,7 +13,7 @@
       "enabled": true,
       "seeds": [0, 1, 2, 3, 4],
       "epsilons": [0.1, 0.01],
-      "num_images": 4,
+      "num_images": 10,
       "size": 640,
       "test_images_dir": "data/test_images"
     },
@@ -21,7 +21,7 @@
       "enabled": true,
       "seeds": [0, 1, 2, 3, 4],
       "epsilons": [0.1, 0.01],
-      "num_images": 4,
+      "num_images": 10,
       "size": 224,
       "models": ["CLIP", "BLIP"]
     },
