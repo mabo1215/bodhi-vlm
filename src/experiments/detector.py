@@ -171,10 +171,12 @@ def _run_detr(device: str, images: torch.Tensor, epsilon: float, seed: int):
     import logging
     from transformers import DetrForObjectDetection, DetrImageProcessor
     cache = HF_CACHE
-    # Suppress expected "UNEXPECTED" load report (num_batches_tracked from BN layers)
-    log = logging.getLogger("transformers.modeling_utils")
-    old_level = log.level
-    log.setLevel(logging.WARNING)
+    # UNEXPECTED: checkpoint has num_batches_tracked (BatchNorm buffers) from ResNet backbone;
+    # HF DetrForObjectDetection does not register them, so they are skipped. Safe to ignore.
+    # Suppress LOAD REPORT by raising transformers log level during load.
+    tlog = logging.getLogger("transformers")
+    old_level = tlog.level
+    tlog.setLevel(logging.ERROR)
     # Suppress PyTorch "copying from non-meta to meta parameter" when loading ResNet backbone
     with warnings.catch_warnings():
         warnings.filterwarnings(
@@ -187,7 +189,7 @@ def _run_detr(device: str, images: torch.Tensor, epsilon: float, seed: int):
             model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50", cache_dir=cache)
             processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50", cache_dir=cache)
         finally:
-            log.setLevel(old_level)
+            tlog.setLevel(old_level)
     model.to(device)
     model.eval()
     feats_orig = _subsample_layers(_collect_detr_features(model, processor, images, device), seed=seed)
